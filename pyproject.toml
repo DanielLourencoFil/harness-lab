@@ -1,0 +1,29 @@
+# Tool configuration only — no build backend. The project is not installed as a
+# package; pytest puts `src/` on the path (see pythonpath below) and mypy uses
+# mypy_path. Fewer moving parts than an editable install, same src/ layout.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+# The spike is a historical artifact, not instrument code (see spike/README.md).
+# Linting it would rewrite the evidence.
+extend-exclude = ["spike", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+exclude = ["^spike/"]
+# Zero-warning rule (Layer 0): a note-level message is a warning; nothing is tolerated.
+warn_unused_configs = true
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+# Any warning fails the run — the Python analogue of zero-warning lint.
+filterwarnings = ["error"]
+addopts = "-q --strict-markers --strict-config"

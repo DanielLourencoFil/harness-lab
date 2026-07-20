@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Wired by scripts/bootstrap.sh via `git config core.hooksPath .githooks`
+# (no husky: a Python repo should not need a node toolchain to install its hooks).
+#
+# Honest label: a local hook is bypassable with --no-verify. The real gate is CI
+# plus the server-side ruleset; this is the fast feedback loop, not the wall.
+set -euo pipefail
+
+if [ -x .venv/bin/python ]; then
+  PY=.venv/bin/python
+else
+  PY=python3
+fi
+
+"$PY" scripts/deletion-guard.py
+./scripts/verify.sh

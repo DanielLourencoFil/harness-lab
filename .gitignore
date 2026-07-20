@@ -1,0 +1,24 @@
+# Environments and build output
+.venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Secrets — never committed, and the agent is denied read on them (.claude/settings.json)
+.env
+.env.*
+
+# Trial workspaces and run outputs produced by the runner (data, not source).
+# The spike's own recorded outputs are the exception: they are committed evidence
+# under spike/, deliberately.
+/runs/
+/workspaces/
+
+# Privacy block: personal learning notes stay private. Never `git add -f` these.
+INTERVIEW-NOTES.md
+/notes/

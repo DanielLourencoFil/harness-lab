@@ -1,0 +1,6 @@
+# Exact pins — the analogue of a frozen lockfile. CI installs this file verbatim.
+# Honest label: pinned, not hash-locked (no pip-tools on this machine, so no
+# --require-hashes). Versions are bumped deliberately, in their own commit.
+ruff==0.15.22
+mypy==2.3.0
+pytest==9.1.1
