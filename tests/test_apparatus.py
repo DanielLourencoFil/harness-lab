@@ -64,7 +64,32 @@ def test_a_result_with_no_model_recorded_is_rejected() -> None:
         apparatus.verify_model({})
 
 
-def test_a_result_from_several_models_is_rejected() -> None:
-    """A mid-run switch leaves two keys. Neither is the trial's model."""
+def test_a_second_substantive_model_is_rejected() -> None:
+    """A mid-run switch to another frontier model makes the trial uninterpretable."""
     with pytest.raises(apparatus.ApparatusMismatchError):
         apparatus.verify_model({"modelUsage": {apparatus.MODEL: {}, "claude-sonnet-4-6": {}}})
+
+
+def test_the_cli_internal_helper_model_is_allowed_but_recorded() -> None:
+    """Observed 2026-07-21, once tools were granted: the CLI runs a cheap model for its
+    own chores (generating the descriptions attached to Bash calls).
+
+    Refusing it would make every tool-using trial unrunnable. Allowing *any* extra
+    model would hand back the probe-B failure, where the model silently became Sonnet.
+    So: allowed by name prefix, and its tokens are recorded rather than absorbed —
+    internal calls track tool calls, which vary by envelope.
+    """
+    result = {
+        "modelUsage": {
+            apparatus.MODEL: {"outputTokens": 673},
+            "claude-haiku-4-5-20251001": {"outputTokens": 32},
+        }
+    }
+    apparatus.verify_model(result)  # no raise
+    assert apparatus.auxiliary_usage(result) == {"claude-haiku-4-5-20251001": 32}
+
+
+def test_a_result_missing_the_pinned_model_is_rejected_even_with_a_helper() -> None:
+    """The helper must never stand in for the pinned model."""
+    with pytest.raises(apparatus.ApparatusMismatchError):
+        apparatus.verify_model({"modelUsage": {"claude-haiku-4-5-20251001": {"outputTokens": 9}}})

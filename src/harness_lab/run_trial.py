@@ -99,6 +99,7 @@ def main(argv: list[str]) -> int:
             "cache_creation": result.cache_creation,
             "wall_ms": result.duration_ms,
             "cap_hit": False,
+            "auxiliary_model_tokens": apparatus.auxiliary_usage(json.loads(raw)),
             "workspace": str(ws),
         }
         _write(run_dir, record)

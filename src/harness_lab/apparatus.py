@@ -107,8 +107,32 @@ def verify_no_denials(result: dict[str, Any]) -> None:
         )
 
 
+# The CLI runs a cheap model for its own internal chores — observed 2026-07-21, once
+# tools were granted: a trial reported both `claude-opus-4-8` (673 output tokens, the
+# actual work) and `claude-haiku-4-5-20251001` (32 output tokens), the latter almost
+# certainly generating the one-line descriptions the CLI attaches to Bash calls.
+#
+# This is apparatus, not the agent under test, and refusing it would make every
+# tool-using trial unrunnable. But it is allowed by NAME PREFIX and nothing else: the
+# whole point of this check is that probe B found the model silently becoming Sonnet,
+# and "allow any extra model" would hand that failure straight back.
+#
+# The top-level `usage.output_tokens` reports the MAIN model only — verified against
+# the same result: 673, not 673+32 — so the ADR 7 cost signature is unaffected.
+# Auxiliary usage is recorded separately and never folded in, because the number of
+# internal calls tracks the number of tool calls, which varies by envelope: the same
+# shape as C1, small, and worth keeping visible rather than absorbed.
+AUXILIARY_MODEL_PREFIXES: Final[tuple[str, ...]] = ("claude-haiku",)
+
+
+def auxiliary_usage(result: dict[str, Any]) -> dict[str, int]:
+    """Output tokens per auxiliary model, for the record. Never part of the cost pair."""
+    usage = result.get("modelUsage") or {}
+    return {name: int(data.get("outputTokens", 0)) for name, data in usage.items() if name != MODEL}
+
+
 def verify_model(result: dict[str, Any]) -> None:
-    """Raise unless the result reports exactly the pinned model.
+    """Raise unless the pinned model did the work, and only known helpers assisted.
 
     Absence is not agreement: a result with no `modelUsage` (probe A's failed run
     returned `{}`) is unverifiable and therefore discarded, never assumed to have run
@@ -121,9 +145,18 @@ def verify_model(result: dict[str, Any]) -> None:
             "verified. An unverifiable trial is discarded."
         )
 
-    models = set(usage.keys())
-    if models != {MODEL}:
+    if MODEL not in usage:
         raise ApparatusMismatchError(
-            f"Trial ran on {sorted(models)}, pinned model is {MODEL}. "
-            f"Comparisons across setups assume one model (SPEC D3)."
+            f"Trial ran on {sorted(usage)}, and the pinned model {MODEL} is not among "
+            f"them. Comparisons across setups assume one model (SPEC D3)."
+        )
+
+    unexpected = [
+        name for name in usage if name != MODEL and not name.startswith(AUXILIARY_MODEL_PREFIXES)
+    ]
+    if unexpected:
+        raise ApparatusMismatchError(
+            f"Trial also ran on {sorted(unexpected)}, which is neither the pinned "
+            f"model nor a known CLI helper. A second substantive model makes the "
+            f"trial uninterpretable (SPEC D3)."
         )
