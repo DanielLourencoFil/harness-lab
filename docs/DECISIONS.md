@@ -140,3 +140,14 @@ they support, with a checked-on date. The spec's own decisions (D1-D10) live in
   module is there" is a claim; a recorded trial with `contamination.txt` saying `NONE`
   and a `result.json` naming the pinned model is evidence a reviewer can re-read. It
   also lets the gate mean something in CI, where no trial can run.
+- **ADR 20 (2026-07-21) — Tasks are calibrated as *small change, large messy context*,
+  amending D1** (SPEC section 12). *Why:* the first two valid trials showed the judge
+  works and the fixture does not. `long-skill`'s differentiating content is three
+  scan-and-change catalogues, and a ten-line `account.py` gives them nothing to scan —
+  the trial could not have separated the envelopes even in principle. *Not a reversal:*
+  the showcase app stays rejected (no objective grader), and the newly measured 19.1%
+  within-setup variance is itself a strong argument for many small tasks over one big
+  one, since high noise is exactly when N matters. Binding on tasks 3-5: 200-400 lines
+  of planted untidiness, small requested change, locked tests unchanged, and at least
+  one temptation task inside Suite Zero rather than deferred to the MVP — it is the
+  only region where mini and long give opposing instructions.

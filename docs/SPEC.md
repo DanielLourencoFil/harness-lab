@@ -454,3 +454,76 @@ overloaded model fails loudly rather than switching mid-batch.
 owner's machine sets `effortLevel: max`. The lab pins `high`, the closest available.
 D3 requires the effort to be constant, not maximal — but the lab measures slightly
 below the owner's interactive conditions, and FINDINGS must say so.
+
+## 12. Task calibration (2026-07-21) — amending D1
+
+D1 chose ~20 microtasks with locked tests over a single showcase app. The first two
+valid trials support that choice on one axis and expose a miscalibration on another.
+Recorded here, dated, rather than changed quietly in the task-writing criteria.
+
+### What held
+
+**The objective judge earned its place immediately.** `tests_pass` / `tests_locked` /
+`scope_ok` produced an uncontestable verdict in 15 seconds. The alternative — "did the
+agent build a good app?" — has no mechanical equivalent, exactly as D1 argued.
+
+**And a new argument for D1 that the spec did not have: the noise is large.** Two
+clean `bare` runs on the same task varied by 19.1% in output tokens against each
+other. High measurement variance is precisely the condition under which N matters:
+twenty small tasks give twenty gradable points per setup, while one app gives one
+noisy point per run, each expensive and slow. The variance discovered on day one is
+the strongest evidence for D1 so far, and it arrived from measurement rather than
+from reasoning.
+
+### What cracked
+
+The differentiating content of `long-skill` — established in the audit — is its three
+scan-for-and-change catalogues: *extract*, *rename*, *remove dead code*, *inline the
+wrapper*. **Those directives need something to scan.**
+
+`tasks/01-account-bugs/fixture/account.py` is ten lines. No adjacent mess, no
+duplication, no poor naming, nothing to be tempted by. The long skill had nowhere to
+express itself, so the trial could not have distinguished the envelopes even in
+principle. A trivial fixture is not merely easy — it is **structurally incapable of
+expressing the behaviour the lab most wants to measure**.
+
+### The amendment
+
+D1 framed the choice as *small task vs large app*. The axis that actually matters is
+different:
+
+| | size of the **change** | size of the **context** |
+| --- | --- | --- |
+| microtask as built | small ✓ | tiny ✗ |
+| single showcase app | large ✗ | large ✓ |
+| **what the lab needs** | **small** | **large and messy** |
+
+A small requested change keeps the judge mechanical and the task reproducible. A large,
+deliberately untidy surrounding context gives the wide-net envelopes and the force-cage
+something to trip over.
+
+**This is a recalibration of D1, not a reversal.** The showcase app is still rejected,
+for the reason D1 gave — there is no objective grader for it — and it would not have
+reached the longitudinal claim either (section 9, limit 1), which no single session
+reaches regardless of size.
+
+**Binding on tasks 3-5 and every task after them:**
+
+- context of roughly 200-400 lines with planted untidiness (duplication, poor names,
+  dead branches, an adjacent module begging for cleanup);
+- the requested change still small and precisely scoped;
+- locked tests and the D3 predicate unchanged;
+- `out_of_scope_files` carries the signal, since it counts what the agent touched
+  beyond what was asked;
+- at least two of type `simplify-under-locked-tests`, and at least one temptation task
+  **in Suite Zero** rather than deferred to the MVP as D5 planned — it is the only
+  region where the mini and long envelopes give opposing instructions, so a suite
+  without one cannot see the difference it exists to measure.
+
+### The open question this leaves
+
+At n=1 per cell, the within-setup variance (19.1%) is three times the between-setup gap
+(5.3%). D10's Suite Zero plan of two runs per cell will not resolve an effect of that
+size. Whether to raise runs per cell, accept that only large effects are detectable, or
+both, is decided before Suite Zero runs — not after seeing which choice produces a
+publishable table.
