@@ -378,3 +378,79 @@ of the instrument, not a property of the envelope.
 
 This sharpens rather than replaces D4's envelope/dynamic split: the split says
 *which* tokens to separate, F4 says *which arithmetic on them is legitimate*.
+
+## 11. Runner findings (2026-07-21) — what building it taught
+
+Section 10 recorded what a two-minute spike taught three days of specification.
+Building the runner taught more, and in the same shape: every item below was found by
+running something, none by reasoning about it. They are recorded here rather than
+edited into the decisions above, so each keeps its date and its cause.
+
+### F5 — Neutralizing the machine layer takes three fixes, not one
+
+F3 named the problem (`claude -p` reads `~/.claude/`) and implied one fix. Three were
+needed, each found only after the previous one was made:
+
+1. **`HOME` must be neutralized** — but not emptied: credentials live in
+   `~/.claude/.credentials.json`, and without them the CLI returns "Not logged in".
+   A trial `HOME` carries that one file and nothing else.
+2. **The working directory must be outside any repository carrying instruction
+   files.** The CLI reads `CLAUDE.md` / `AGENTS.md` from **ancestor** directories.
+   Trial workspaces initially sat in `runs/` inside this repo, so every trial
+   inherited harness-lab's own constitution — the `bare` floor ran carrying two.
+   A structural check of the workspace directory reported clean throughout.
+3. **Every invocation needs its own `HOME`.** The CLI *writes* to `HOME` as it runs:
+   `.claude.json`, `.claude/settings.json`, `.claude/debug/`, `.claude/todos/`, and
+   `.claude/projects/<workspace>/*.jsonl` — **session transcript**. A `HOME` reused
+   across trials would let trial N read trial N-1's history, a cross-trial leak no
+   inspection of a workspace could ever detect.
+
+**Consequence:** neutrality is not a property of `HOME` alone. It is a property of
+(`HOME`, working directory, invocation count), and it is verified per invocation.
+
+### F6 — Structural checks cannot certify a floor; ask the agent
+
+At the moment the floor was contaminated, both structural guards passed:
+`assert_neutralized` (the `HOME` held only credentials) and `assert_no_harness_files`
+(the workspace directory was clean). A structural check looks for what its author knew
+to look for.
+
+The runner therefore runs **trial zero** before each measurement: it asks the agent, in
+the exact directory the trial will use, to list every instruction file it can see, and
+aborts unless the answer is `NONE`. The agent is the only witness with sight of
+everything actually injected. This is wired into the runner, not left as a command
+someone remembers.
+
+### F7 — `cache_read` is not evidence of contamination
+
+The pre-registered F3 criterion was "cache_read should collapse". It does not, and it
+never could: per turn it is flat at ~20-21.5k across a contaminated run, a partially
+contaminated run and a clean one, because it is the CLI's own built-in system prompt
+being re-read. The owner's `CLAUDE.md` is small beside it.
+
+Had the structural check not existed, the observed 15% drop was narratable as success.
+**Second instance of the F4 lesson: token fields are a poor instrument for structural
+questions, and the direction of a plausible number is not evidence of its cause.**
+
+### F8 — The result JSON reports `subtype: "success"` on failed runs
+
+A run that failed to authenticate returned `"subtype":"success"` with
+`"is_error":true` and `"output_tokens":0`. A runner filtering on `subtype` would record
+a failed trial as a successful, free one. **The success signal is `is_error == false`**;
+`output_tokens == 0` is treated as an aborted run, not a cheap one.
+
+### F9 — The apparatus is not part of the harness, and neutralizing removes it too
+
+Neutralizing `HOME` silently changed the model from `claude-opus-4-6` to the CLI
+default `claude-sonnet-4-6`, because the model came from `settings.json`. The machine
+layer holds two separable things: the **harness** (constitution, hooks, skills,
+memory), whose absence is what `bare` measures, and the **apparatus** (model, effort),
+which D3 requires to be constant. Only the first is neutralized; the second is pinned
+by flag and **verified after the run** against the result's `modelUsage`, since a flag
+is an intention and the result is evidence. `--fallback-model` is never set, so an
+overloaded model fails loudly rather than switching mid-batch.
+
+**Declared limit:** `--effort max` is rejected for Claude.ai subscribers, though the
+owner's machine sets `effortLevel: max`. The lab pins `high`, the closest available.
+D3 requires the effort to be constant, not maximal — but the lab measures slightly
+below the owner's interactive conditions, and FINDINGS must say so.

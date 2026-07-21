@@ -1,8 +1,7 @@
 """Suite Zero entry gate: debts that must be paid before any number is comparable.
 
-Each test below asserts a property the lab needs for its results to mean what the
-FINDINGS will say they mean. Each is currently unpaid and marked
-`xfail(strict=True)`, which means:
+Each test asserts a property the lab needs for its results to mean what the FINDINGS
+will say they mean. An unpaid debt is marked `xfail(strict=True)`, which means:
 
 - while the debt stands, the test is expected to fail and `verify` stays green;
 - **the moment a debt is paid, the test passes, `strict=True` turns that into a
@@ -13,33 +12,48 @@ tracked this way announces itself in CI from both directions. The list is the on
 place the preconditions live — SPEC.md and the setups READMEs point here, and none of
 them is authoritative on whether a debt is still open.
 
+**All five original debts are now paid** (renderer 2026-07-21, then F3, D8 isolation
+and ADR 11 git workspaces on the same day), and every marker came off because the
+gate turned red and demanded it — not because anyone remembered. New debts are added
+here as new `xfail(strict=True)` tests; an empty file would mean the gate had stopped
+being used, not that nothing is owed.
+
+Where a debt is discharged by a *run* rather than by code, the test asserts against a
+committed artifact (`docs/evidence/`), because "the code exists" is a claim and a
+recorded run is evidence.
+
 Doctrine this implements: "if a rule can be a tool/test/hook, wire it; only what
 cannot be reified goes into convention docs" — documented-but-unwired governance is a
 prayer, not a gate.
 """
 
-import os
+import json
 from pathlib import Path
 
 import pytest
 
+from harness_lab import apparatus, contamination, workspace
+
 ROOT = Path(__file__).resolve().parent.parent
-
-# Set by the runner once it can prove the property; unset in normal development.
-# Until the runner exists, nothing sets these, and every precondition stays red.
-RUNNER_PROVES = os.environ.get("HARNESS_LAB_RUNNER_PROVES", "").split(",")
+EVIDENCE = ROOT / "docs" / "evidence" / "2026-07-21-f3-neutralization"
 
 
-@pytest.mark.xfail(strict=True, reason="F3 debt: machine layer not yet neutralized")
 def test_bare_setup_is_a_true_floor() -> None:
-    """SPEC.md F3 — `claude -p` reads ~/.claude/, so `bare` is not a pure-model floor.
+    """SPEC.md F3, PAID 2026-07-21 — the marker came off when this started passing.
 
-    The spike measured 141k cache-read tokens of constitution inside the "no envelope"
-    setup. Until the runner launches trials with a neutralized HOME (or an empty
-    --settings), every cross-setup comparison sits on a floor that already contains
-    the harness, and `bare` may only be labeled "machine-layer only".
+    Three fixes, none foreseen by the spec: neutralize HOME; move workspaces outside
+    this repo (the CLI reads instruction files from ancestor directories); give every
+    invocation its own HOME (the CLI writes to HOME, including session transcript).
+
+    Asserted against a recorded run rather than against code existing — see
+    docs/evidence/2026-07-21-f3-neutralization/.
     """
-    assert "neutralized_home" in RUNNER_PROVES
+    answer = (EVIDENCE / "contamination.txt").read_text()
+    assert contamination.is_clean(answer), f"The recorded floor is contaminated: {answer[:200]!r}"
+
+    result = json.loads((EVIDENCE / "result.json").read_text())
+    assert result["is_error"] is False
+    apparatus.verify_model(result)
 
 
 def test_envelope_render_is_decided_and_hashed() -> None:
@@ -64,28 +78,30 @@ def test_envelope_render_is_decided_and_hashed() -> None:
     assert "description:" not in envelopes.render("long-skill")
 
 
-@pytest.mark.xfail(strict=True, reason="D8 selftest not written; no trial workspaces yet")
-def test_trial_workspace_contains_no_harness_files() -> None:
-    """SPEC.md D8 — the cage wraps the instrument and must never leak into a trial.
+def test_trial_workspace_contains_no_harness_files(tmp_path: Path) -> None:
+    """SPEC.md D8, PAID 2026-07-21 — the leak is guarded from both directions.
 
-    Two specific cases, not just "no harness files copied in":
-    1. no CLAUDE.md / AGENTS.md / .claude/ inside a trial workspace, and
-    2. long-skill line 49 instructs the agent to "Read CLAUDE.md / project
-       conventions" — so the leak can be pulled in by the envelope itself, not only
-       pushed in by the runner.
+    Pushed in by the runner: assert_no_harness_files walks every ancestor, because on
+    2026-07-21 the workspace directory itself was clean while the repo above it was
+    not. Pulled in by the envelope: long-skill line 49 tells the agent to "Read
+    CLAUDE.md / project conventions", which trial zero catches by asking the agent
+    what it can actually see.
     """
-    assert "workspace_isolation" in RUNNER_PROVES
+    ws = workspace.prepare(ROOT / "tasks" / "01-account-bugs", tmp_path / "ws")
+    workspace.assert_no_harness_files(ws)
+
+    # A workspace inside this repo must be refused -- the exact 2026-07-21 mistake.
+    with pytest.raises(workspace.HarnessLeakError):
+        workspace.assert_no_harness_files(ROOT)
 
 
-@pytest.mark.xfail(strict=True, reason="ADR 11: workspaces are not git-initialized yet")
-def test_trial_workspace_is_git_initialized() -> None:
-    """ADR 11 — long-skill instructs `git blame` (line 118) and `commit` (line 165).
-
-    In a plain fixture directory both fail, and the turns spent land in the ADR 7 cost
-    metric as if the envelope had caused them. Every workspace gets `git init` plus one
-    initial commit, identically for all four setups.
+def test_trial_workspace_is_git_initialized(tmp_path: Path) -> None:
+    """ADR 11, PAID 2026-07-21 — long-skill instructs `git blame` (118) and `commit`
+    (165); in a plain directory both fail and the wasted turns land in the cost metric
+    as if the envelope had caused them.
     """
-    assert "git_workspaces" in RUNNER_PROVES
+    ws = workspace.prepare(ROOT / "tasks" / "01-account-bugs", tmp_path / "ws")
+    assert (ws / ".git").is_dir()
 
 
 def test_every_vendored_third_party_file_records_its_upstream_commit() -> None:

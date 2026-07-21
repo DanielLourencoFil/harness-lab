@@ -112,3 +112,31 @@ they support, with a checked-on date. The spec's own decisions (D1-D10) live in
   Measuring skill *selection* — does the model correctly judge when a skill applies? —
   is a real question, and the frontmatter is its object rather than noise; that is a
   Phase 3 experiment, not this one.
+- **ADR 16 (2026-07-21) — Trial workspaces are created outside this repository**
+  (a temp directory), never under `runs/`. *Why:* the CLI reads instruction files from
+  ancestor directories, so a workspace inside harness-lab inherits harness-lab's own
+  `CLAUDE.md` — the first real trial ran a `bare` floor carrying two constitutions
+  while both structural guards reported clean (SPEC F5). `runs/` keeps results only;
+  they are output, not the agent's working directory. `assert_no_harness_files` walks
+  every ancestor to the filesystem root, because checking the workspace directory
+  alone looked at the wrong place entirely.
+- **ADR 17 (2026-07-21) — One single-use `HOME` per invocation, not per trial.**
+  *Why:* the CLI writes to `HOME` while running — including
+  `.claude/projects/<workspace>/*.jsonl`, which is session transcript. A shared `HOME`
+  would let trial N read trial N-1's history: a cross-trial leak that no inspection of
+  a workspace could detect. Credentials never outlive one invocation.
+- **ADR 18 (2026-07-21) — Trial zero: the runner asks the agent what instruction files
+  it can see, and aborts unless the answer is clean.** *Why:* when the floor was
+  contaminated, both structural guards passed — a structural check only looks for what
+  its author knew to look for, and the agent is the only witness that sees everything
+  actually injected. Runs in the exact directory the trial will use, since the
+  contamination found on 2026-07-21 depended on the working directory and nothing
+  else. The verdict is deliberately blunt (any instruction-file mention counts): a
+  false positive costs one investigation, a false negative costs a batch of invalid
+  numbers. Wired into the runner rather than left to memory (ADR 14's doctrine applied
+  to itself).
+- **ADR 19 (2026-07-21) — A precondition discharged by a *run* asserts against a
+  committed artifact** (`docs/evidence/`), not against code existing. *Why:* "the
+  module is there" is a claim; a recorded trial with `contamination.txt` saying `NONE`
+  and a `result.json` naming the pinned model is evidence a reviewer can re-read. It
+  also lets the gate mean something in CI, where no trial can run.

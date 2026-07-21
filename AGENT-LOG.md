@@ -74,3 +74,53 @@ asserts nothing — is exactly what this project exists to measure.
 that were prose in four different files are now `xfail(strict=True)` tests in one
 place, proven to bite in both directions (open debt → silent xfail; debt paid → hard
 failure demanding the marker be removed).
+
+## 2026-07-21 — Building the runner: five findings, none from the spec
+
+**Helped.** The pipe runs end to end on a genuinely isolated floor. All five Suite
+Zero preconditions are paid and the gate is empty of markers, each one removed because
+CI turned red and demanded it rather than because anyone remembered.
+
+**The pattern worth recording is the order of discovery.** Every finding came from
+running something, and each was only visible after the previous one was fixed:
+
+| # | found | how |
+| --- | --- | --- |
+| 1 | an empty `HOME` breaks auth; credentials are one file | probe, before any code |
+| 2 | the result JSON says `subtype: "success"` on failed runs | the same probe's output |
+| 3 | neutralizing `HOME` silently changes the model | second probe |
+| 4 | the CLI reads instruction files from **ancestor** directories | asking the agent from inside a workspace |
+| 5 | the CLI **writes** to `HOME`, including session transcript | the runner's own guard aborting a trial |
+
+Nothing in three days of specification reached any of them. Findings 4 and 5 were not
+merely unforeseen — they were invisible to the checks written specifically to catch
+their category.
+
+**Failed — the important one.** I pre-registered the wrong success criterion for F3:
+"cache_read should collapse". It cannot. Per turn it is flat at ~20-21.5k across a
+contaminated run, a partly contaminated run and a clean one, because it is the CLI's
+own system prompt being re-read; the owner's `CLAUDE.md` is small beside it. The
+observed 15% drop was narratable as success, and only the structural check stopped
+that story being told. **This is the second time in two days that a token field was
+mistaken for evidence** — the first produced a false headline about the mini-skill
+(F4). The lesson is now explicit in the spec: token fields are a poor instrument for
+structural questions, and a plausible number moving in the expected direction is not
+evidence of its cause.
+
+**Failed — the one that made a measurement invalid.** I put trial workspaces in
+`runs/` inside this repo, for tidiness. Because the CLI walks up the directory tree,
+every trial inherited harness-lab's own `CLAUDE.md`: the `bare` floor ran carrying two
+constitutions, and the first "real measurement" was void. Both structural guards
+reported clean the whole time, including the one named for exactly this
+(`assert_no_harness_files`) — it checked the workspace directory and the contamination
+was in its parent.
+
+**What that changed.** Trial zero (ADR 18): before each measurement the runner asks
+the agent, in the exact directory the trial will use, which instruction files it can
+see, and aborts unless the answer is `NONE`. A structural check looks for what its
+author knew to look for; the agent is the only witness that sees everything actually
+injected. It is wired into the runner, because the alternative was a command someone
+remembers to type — the failure mode this whole file exists to document.
+
+**Also caught, unprompted by any tool:** `assert_no_harness_files` was written and
+never called. A guard that exists and is not wired is decoration.
