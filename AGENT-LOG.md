@@ -170,3 +170,59 @@ whose own docstring says a guard that is never called is decoration.
 Both audits found things that had passed a green `verify`, a green CI run and my own
 review. The pattern across both: what fails is never the mechanism I built
 deliberately — it is the assertion I wrote *about* the mechanism.
+
+## 2026-07-21 — Owner evaluation session: the theses were never in the repo
+
+**What happened.** The owner opened a fresh session saying the lab felt off the rails
+and asked what the code actually does. The code matched the spec at every point
+checked. The session still found the real problem, and no file in this repo could have
+surfaced it: **the owner's actual theses exist nowhere in writing.**
+
+**The theses, in the owner's formulation (recorded here so an unpause starts from
+them, not from re-derivation):** the lab tests how instruction should be written and
+delivered to an agent. One capability under test — deliver green without cheating and
+without touching what was not asked. Three vehicles that must express **exactly the
+same idea**: a short skill (~30 lines), the same content stretched long (~300 lines),
+and the force-cage (the mechanical loop). Only the vehicle varies; content is held
+constant. The output decides practice: whether skills are written short or long,
+verbose-repetitive or terminologically strict — and when a cage replaces a skill
+entirely. It is also a theater detector: when someone claims a 300-line skill
+delivers, measure it against the same ideas in 30 lines.
+
+**What was found against that statement:**
+
+1. **The built arms violate it.** `long-skill` (the vendored Osmani skill) is not the
+   mini elaborated — it commands refactoring catalogues the mini's third line forbids.
+   Audit finding 1 had already documented this as a caveat; against the owner's
+   statement it is a design error: the arm answers "does this artifact deliver?" (a
+   product test), not "does the same content delivered longer help or hurt?" (the
+   owner's question).
+2. **The owner's controlled experiment sits in Phase 3 of the spec** (placebo skill,
+   formulation ablation) — deferred behind the artifact test it should have preceded.
+3. **The spec's one-line owner goal underdetermines the design.** Each building
+   session filled the gap with locally defensible choices that collectively drifted.
+   Intent living only in the owner's head is re-derived by every fresh session —
+   documented-but-unwritten intent is the same prayer this repo's doctrine warns
+   about, one level up.
+
+**Where the agent failed.** The first evaluation report described mechanism (modules,
+guards, gates) and pronounced the code faithful to the spec. The owner's question was
+purpose-fit, and the misalignment only surfaced after he restated his theses from
+scratch. An evaluator checking code-against-spec cannot see spec-against-intent; only
+the owner's replica caught it.
+
+**What held.** The owner raised the equivalence question cold — "how do we know two
+results are comparable, since more expensive is not by itself worse?" — and the
+existing design answered it without amendment: equivalence is defined ex ante by the
+D3 predicate, cost is compared only conditional on success and only within a task, and
+quality beyond the predicate is a declared limit (SPEC section 9). The instrument
+survives this session untouched: every guard, every gate and the cost accounting serve
+any set of arms equally.
+
+**Outcome.** Option A — realign the arms to the theses (mini and long share content,
+the long produced by a pre-registered expansion rule; Osmani relabeled as an
+artifact-test arm; the theses written into SPEC.md owner-signed) — was reported and
+not approved. The owner announced the intent to pause the lab: "it seems it will not
+have the practical effect I expect." A pause now is the kill-criteria design doing its
+job early — the decision to stop cheaply was made at spec time, clear-headed,
+precisely so this moment would not become a renegotiation under sunk cost.
