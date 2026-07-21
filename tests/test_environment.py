@@ -12,8 +12,8 @@ import pytest
 from harness_lab import environment
 
 
-def test_a_freshly_created_home_is_neutralized(tmp_path: Path) -> None:
-    home = environment.create_neutralized_home(tmp_path)
+def test_a_freshly_created_home_is_neutralized(tmp_path: Path, fake_credentials: Path) -> None:
+    home = environment.create_neutralized_home(tmp_path, fake_credentials)
     environment.assert_neutralized(home)
     assert (home / ".claude" / ".credentials.json").is_file()
 
@@ -28,26 +28,30 @@ def test_the_real_home_is_never_neutralized() -> None:
         environment.assert_neutralized(Path.home())
 
 
-def test_a_home_carrying_a_constitution_is_not_neutralized(tmp_path: Path) -> None:
-    home = environment.create_neutralized_home(tmp_path)
+def test_a_home_carrying_a_constitution_is_not_neutralized(
+    tmp_path: Path, fake_credentials: Path
+) -> None:
+    home = environment.create_neutralized_home(tmp_path, fake_credentials)
     (home / "CLAUDE.md").write_text("# anything at all\n")
     with pytest.raises(environment.ContaminatedEnvironmentError):
         environment.assert_neutralized(home)
 
 
-def test_a_home_carrying_settings_or_skills_is_not_neutralized(tmp_path: Path) -> None:
+def test_a_home_carrying_settings_or_skills_is_not_neutralized(
+    tmp_path: Path, fake_credentials: Path
+) -> None:
     """Settings carry the apparatus (model, effort) and skills carry the harness.
 
     Checked as a whitelist rather than a blacklist: we must not have to enumerate
     what lives in ~/.claude to know a HOME is clean, because the day something new
     appears there is the day a blacklist starts lying.
     """
-    home = environment.create_neutralized_home(tmp_path)
+    home = environment.create_neutralized_home(tmp_path, fake_credentials)
     (home / ".claude" / "settings.json").write_text("{}\n")
     with pytest.raises(environment.ContaminatedEnvironmentError):
         environment.assert_neutralized(home)
 
-    home2 = environment.create_neutralized_home(tmp_path / "second")
+    home2 = environment.create_neutralized_home(tmp_path / "second", fake_credentials)
     (home2 / ".claude" / "skills").mkdir()
     with pytest.raises(environment.ContaminatedEnvironmentError):
         environment.assert_neutralized(home2)
@@ -65,45 +69,51 @@ def test_a_home_without_credentials_is_rejected(tmp_path: Path) -> None:
         environment.assert_neutralized(home)
 
 
-def test_trial_env_points_home_at_the_neutralized_directory(tmp_path: Path) -> None:
-    home = environment.create_neutralized_home(tmp_path)
+def test_trial_env_points_home_at_the_neutralized_directory(
+    tmp_path: Path, fake_credentials: Path
+) -> None:
+    home = environment.create_neutralized_home(tmp_path, fake_credentials)
     env = environment.trial_env(home)
     assert env["HOME"] == str(home)
 
 
-def test_trial_env_clears_the_nested_session_marker(tmp_path: Path) -> None:
+def test_trial_env_clears_the_nested_session_marker(tmp_path: Path, fake_credentials: Path) -> None:
     """F1 — `claude -p` refuses to run inside a Claude Code session.
 
     The runner is launched from a normal terminal, but the marker must not survive
     into the child by accident: a leaked CLAUDECODE turns every trial into a crash
     whose message points at nesting rather than at the runner.
     """
-    home = environment.create_neutralized_home(tmp_path)
+    home = environment.create_neutralized_home(tmp_path, fake_credentials)
     env = environment.trial_env(home)
     assert "CLAUDECODE" not in env
 
 
-def test_each_neutralized_home_is_distinct_and_removed_after_use() -> None:
+def test_each_neutralized_home_is_distinct_and_removed_after_use(
+    fake_credentials: Path,
+) -> None:
     """Single-use, because the CLI writes to HOME as it runs (observed 2026-07-21).
 
     One invocation left `.claude.json`, `.claude/settings.json`, `.claude/debug/` and
     `.claude/projects/<workspace>/…jsonl` — session transcript. Sharing a HOME across
     trials would let trial N read trial N-1's history.
     """
-    with environment.neutralized_home() as first:
+    with environment.neutralized_home(fake_credentials) as first:
         first_path = first
         assert first.is_dir()
-        with environment.neutralized_home() as second:
+        with environment.neutralized_home(fake_credentials) as second:
             assert second != first
     assert not first_path.exists()
 
 
-def test_a_home_dirtied_by_a_previous_run_is_no_longer_neutral(tmp_path: Path) -> None:
+def test_a_home_dirtied_by_a_previous_run_is_no_longer_neutral(
+    tmp_path: Path, fake_credentials: Path
+) -> None:
     """The abort that exposed the reuse bug, as a test.
 
     These are the exact paths the CLI created in a supposedly neutral HOME.
     """
-    home = environment.create_neutralized_home(tmp_path)
+    home = environment.create_neutralized_home(tmp_path, fake_credentials)
     for leftover in (
         ".claude.json",
         ".claude/settings.json",

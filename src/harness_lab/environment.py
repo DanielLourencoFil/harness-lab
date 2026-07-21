@@ -43,18 +43,23 @@ def real_credentials_path() -> Path:
     return Path.home() / _CLAUDE_DIR / _CREDENTIALS
 
 
-def create_neutralized_home(parent: Path) -> Path:
+def create_neutralized_home(parent: Path, credentials: Path | None = None) -> Path:
     """Build a HOME carrying credentials and nothing else.
 
     `parent` is created if missing; the caller owns its lifetime and is responsible
     for deleting it after the trial (credentials should not outlive the run).
+
+    `credentials` defaults to the real ones. Tests pass a stand-in: the real path
+    exists only on a machine someone has logged in on, and a test suite that cannot
+    run on a fresh checkout is a test suite coupled to one laptop — CI caught exactly
+    that on 2026-07-21.
     """
     home = parent
     home.mkdir(parents=True, exist_ok=True)
     claude = home / _CLAUDE_DIR
     claude.mkdir(exist_ok=True)
     # copy, never read: the credential's contents must not pass through this process.
-    shutil.copyfile(real_credentials_path(), claude / _CREDENTIALS)
+    shutil.copyfile(credentials or real_credentials_path(), claude / _CREDENTIALS)
     return home
 
 
@@ -112,7 +117,7 @@ def assert_not_nested(env: dict[str, str] | None = None) -> None:
 
 
 @contextmanager
-def neutralized_home() -> Iterator[Path]:
+def neutralized_home(credentials: Path | None = None) -> Iterator[Path]:
     """A single-use neutralized HOME, deleted on exit.
 
     Single-use is the point. The CLI *writes* to HOME as it runs — observed
@@ -130,7 +135,7 @@ def neutralized_home() -> Iterator[Path]:
     """
     parent = Path(tempfile.mkdtemp(prefix="harness-lab-home-"))
     try:
-        home = create_neutralized_home(parent)
+        home = create_neutralized_home(parent, credentials)
         assert_neutralized(home)
         yield home
     finally:

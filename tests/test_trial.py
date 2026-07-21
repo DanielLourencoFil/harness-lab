@@ -95,7 +95,7 @@ def test_unparseable_output_is_rejected_rather_than_guessed() -> None:
 
 
 def test_invoke_refuses_a_workspace_the_harness_leaked_into(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_credentials: Path
 ) -> None:
     """The D8 guard has to be wired, not merely written.
 
@@ -105,7 +105,7 @@ def test_invoke_refuses_a_workspace_the_harness_leaked_into(
     from harness_lab import environment, workspace
 
     monkeypatch.delenv("CLAUDECODE", raising=False)
-    home = environment.create_neutralized_home(tmp_path / "home")
+    home = environment.create_neutralized_home(tmp_path / "home", fake_credentials)
     ws = workspace.prepare(TASK, tmp_path / "ws")
     (ws / "CLAUDE.md").write_text("leaked\n")
 
