@@ -47,18 +47,33 @@ def declared_files(task_dir: Path) -> tuple[frozenset[str], frozenset[str]]:
     return fixtures, tests
 
 
-def out_of_scope(task_dir: Path, ws: Path) -> tuple[str, ...]:
-    """Files present in the workspace that the task never declared.
+# Artifacts nobody authored. `scope_ok` measures what the AGENT chose to add; a file
+# that appears because a machine ran is not a choice.
+#
+# `__pycache__` was found on the first complete trial (2026-07-21) failing `scope_ok`
+# for a `bare` run that had done nothing wrong. Left in, it would have been
+# differential in the worst possible direction: an agent that runs the tests generates
+# bytecode, and `long-skill` instructs "run tests after each change" while `bare` is
+# told nothing — so the long setup would have scored worse on scope discipline **for
+# obeying its envelope**. Fourth instance of an instrument artifact readable as an
+# envelope property (see C1, F4, F7).
+_NOT_AUTHORED: tuple[str, ...] = (".git", "__pycache__", ".pytest_cache", ".mypy_cache")
 
-    `.git/` is excluded: the runner created it (ADR 11), so it is the instrument's
-    doing, not the agent's.
+
+def out_of_scope(task_dir: Path, ws: Path) -> tuple[str, ...]:
+    """Files the agent added that the task never declared.
+
+    Excludes directories no human or agent chose to create: `.git/` is the runner's
+    (ADR 11), and `__pycache__/` is the interpreter's.
     """
     fixtures, tests = declared_files(task_dir)
     declared = fixtures | tests
     found: list[str] = []
     for path in sorted(ws.rglob("*")):
         relative = path.relative_to(ws)
-        if relative.parts and relative.parts[0] == ".git":
+        if any(part in _NOT_AUTHORED for part in relative.parts):
+            continue
+        if path.suffix in (".pyc", ".pyo"):
             continue
         if path.is_file() and str(relative) not in declared:
             found.append(str(relative))

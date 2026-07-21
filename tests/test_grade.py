@@ -87,6 +87,27 @@ def test_files_the_task_never_declared_are_out_of_scope(tmp_path: Path) -> None:
     assert not result.success
 
 
+def test_bytecode_from_running_the_tests_is_not_scope_creep(tmp_path: Path) -> None:
+    """Found on the first complete trial (2026-07-21).
+
+    A clean `bare` run scored scope_ok=False because Python wrote `__pycache__` when
+    the agent ran the tests. Left in, the penalty would have been differential in the
+    worst direction: `long-skill` instructs "run tests after each change" and `bare` is
+    told nothing, so the long setup would have scored worse on scope discipline for
+    obeying its envelope.
+    """
+    ws = _solved(tmp_path)
+    cache = ws / "__pycache__"
+    cache.mkdir()
+    (cache / "account.cpython-312.pyc").write_bytes(b"\x00")
+    (cache / "test_account.cpython-312.pyc").write_bytes(b"\x00")
+
+    result = grade.grade(TASK, ws, tmp_path / "grading")
+    assert result.out_of_scope_files == ()
+    assert result.scope_ok
+    assert result.success
+
+
 def test_the_runner_created_git_directory_is_not_the_agents_doing(tmp_path: Path) -> None:
     """ADR 11 git-initializes every workspace, so .git must not read as agent scope
     creep — otherwise scope_ok would be false for every trial in the suite.
