@@ -30,19 +30,56 @@ def test_long_skill_matches_its_pinned_hash() -> None:
     )
 
 
-def test_mini_skill_is_the_text_the_spike_actually_ran() -> None:
-    """Guards the mini envelope against silent editing.
+def test_mini_skill_is_the_text_the_spike_ran_modulo_the_trailing_newline() -> None:
+    """The mini envelope is the spike's text, read from the spike rather than retyped.
 
-    The text is byte-identical to the MINI_SKILL variable in the spike runner
-    (spike/2026-07-20-mechanism/run.sh), so results from the spike and from the real
-    runner describe the same envelope.
+    Not byte-identical, and the difference is pre-registered rather than papered over:
+    the shell literal in run.sh closes immediately after "touch." and carries no
+    trailing newline, while a text file properly ends with one. So the file is the
+    literal + "\\n".
+
+    The render rule that follows is binding on the runner: **trailing whitespace is
+    stripped from every envelope before it reaches --append-system-prompt**, applied
+    identically to all setups. Without it the mini and long envelopes would differ by
+    an invisible byte whose origin is file convention, not experimental design.
+    Enforcing it on the rendered string is a precondition (see test_preconditions.py).
     """
+    run_sh = (SETUPS.parent / "spike" / "2026-07-20-mechanism" / "run.sh").read_text()
+    literal = run_sh.split("MINI_SKILL='", 1)[1].split("'", 1)[0]
     mini = (SETUPS / "mini-skill" / "SKILL.md").read_text()
-    assert mini == (
-        "Write the simplest change that works. Preserve existing behavior.\n"
-        "Do not modify test files. Keep the change scoped to the file named in the task.\n"
-        'Do not refactor or "clean up" code the task did not ask you to touch.\n'
-    )
+
+    assert mini == literal + "\n"
+    assert mini.rstrip("\n") == literal
+    assert not literal.endswith("\n")
+
+
+def test_readme_quotes_of_the_long_skill_are_verbatim() -> None:
+    """Reification of audit finding N2.
+
+    setups/long-skill/README.md presents these inside quotation marks and states the
+    limits "belong in FINDINGS v1 verbatim". A misquote there propagates into a
+    published document.
+
+    Whitespace is normalized on both sides: markdown wraps quotes across lines, and a
+    naive substring check silently skips every wrapped quote — a test that cannot fail.
+    """
+
+    def flat(text: str) -> str:
+        return " ".join(text.split())
+
+    skill = flat((SETUPS / "long-skill" / "SKILL.md").read_text())
+    readme = flat((SETUPS / "long-skill" / "README.md").read_text())
+    quoted = [
+        "Read CLAUDE.md / project conventions",
+        "Check git blame: what was the original context",
+        "Build succeeds with no new warnings",
+        "Linter/formatter passes",
+        "Code is already clean and readable — don't simplify for the sake of it",
+    ]
+    checked = [p for p in quoted if flat(p) in readme]
+    assert len(checked) == len(quoted), "a listed quote is no longer in the README"
+    for phrase in checked:
+        assert flat(phrase) in skill, f"README quotes {phrase!r}, absent from SKILL.md"
 
 
 def test_envelopes_without_files_have_none() -> None:
@@ -56,3 +93,25 @@ def test_envelopes_without_files_have_none() -> None:
             f"setups/{setup}/ exists. That envelope is defined by the runner, not by "
             f"a file — see setups/README.md."
         )
+
+
+def test_setups_directory_holds_exactly_the_known_entries() -> None:
+    """A runner that globs setups/*/ must not discover a fifth setup by accident.
+
+    `_phase3-candidates/` is parked material, not an envelope, and the two file-backed
+    setups have different shapes (long-skill/ carries a README beside its SKILL.md).
+    Pinning the set means a new directory has to be declared here before anything can
+    enumerate it as a setup.
+    """
+    dirs = {p.name for p in SETUPS.iterdir() if p.is_dir()}
+    assert dirs == {"mini-skill", "long-skill", "_phase3-candidates"}
+
+    files = {p.name for p in SETUPS.iterdir() if p.is_file()}
+    assert files == {"README.md"}
+
+    # Only SKILL.md is an envelope; everything else in a setup dir is documentation.
+    assert {p.name for p in (SETUPS / "mini-skill").iterdir()} == {"SKILL.md"}
+    assert {p.name for p in (SETUPS / "long-skill").iterdir()} == {
+        "SKILL.md",
+        "README.md",
+    }

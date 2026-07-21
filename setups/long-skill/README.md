@@ -29,8 +29,10 @@ is a choice with degrees of freedom:
    **review someone else's change before merge** — a role our trials do not contain
    (no PR, no reviewer, agent works alone and headless). Using it would confound role
    mismatch with envelope length. It is parked in `../_phase3-candidates/`.
-3. Its content is directionally identical to `mini-skill`, which is what makes the
-   comparison a test of length rather than of content (see `../README.md`).
+3. It shares `mini-skill`'s three restraint clauses, so the two envelopes overlap on
+   content rather than being unrelated instructions. **This is not the same as being
+   directionally identical** — see limit 5 below and `../README.md`, which pre-register
+   what a long-vs-mini gap may and may not be read as.
 
 ## Declared limits — found by reading it, not by summarizing it
 
@@ -65,13 +67,35 @@ badly with F3 (`claude -p` already reads `~/.claude/`): the long setup carries a
 explicit instruction to go fetch the machine layer we are trying to neutralize. The
 D8 selftest must assert this specific case, not just "no harness files copied in".
 
-**3. Its worked examples are mostly not in our language.** Lines 191-295 are
-TypeScript/JS/React; Python gets ~30 lines. Our tasks are Python. So roughly 80% of
-the skill's concrete content is off-language for this suite. A null result must be
-read against that, never as "long skills do not help".
+**3. Its worked examples are mostly not in our language.** Counted by block:
+
+| block | lines | count |
+| --- | --- | --- |
+| TypeScript | 65-76, 78-90, 191-236 | 71 |
+| React/JSX | 275-295 | 21 |
+| **Python** | **240-271** | **32** |
+
+Our tasks are Python, so **67.7%** of the three large example blocks (67 of 99 lines)
+is off-language, rising to **74.2%** (92 of 124) counting the two short TypeScript
+snippets earlier in the file. A null result must be read against that, never as "long
+skills do not help".
 
 **4. It tells the agent when NOT to apply itself** (lines 23-28: "Code is already
-clean — don't simplify for the sake of it"). On a pure bug-fix task an obedient agent
-should largely ignore this skill. That is why the task mix matters: without
-`simplify-under-locked-tests` tasks in the suite (SPEC.md D1), the long setup is close
-to inert and a null result would be uninterpretable.
+clean and readable — don't simplify for the sake of it"). On a pure bug-fix task an
+obedient agent should largely ignore this skill. That is why the task mix matters:
+without `simplify-under-locked-tests` tasks in the suite (SPEC.md D1), the long setup
+is close to inert and a null result would be uninterpretable.
+
+**5. It argues both sides of restraint, which limits what a long-vs-mini gap proves.**
+Alongside the three restraint clauses it shares with `mini-skill`, it carries three
+scan-for-and-change catalogues (lines 129-135, 139-145, 149-155: *extract*, *split*,
+*rename*, *remove dead code*, *inline the wrapper*, *replace the pattern*) and rebuts
+"It's working, no need to touch it" with "Simplifying now saves time on every future
+change" (line 301). `mini-skill` has no analogue for any of that, and its third line
+forbids that class of edit outright.
+
+So the two envelopes differ in **length and in content direction**, not in length
+alone. `../README.md` pre-registers the consequence: the length inference for D7 row 1
+is drawn only where these directives are inert, and on temptation tasks a higher
+`out_of_scope_files` for this setup is read as content. Separating the two properly
+needs the Phase 3 placebo (same length, content-free).
