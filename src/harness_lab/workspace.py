@@ -65,12 +65,28 @@ def prepare(task_dir: Path, dest: Path) -> Path:
 
 
 def assert_no_harness_files(workspace: Path) -> None:
-    """Raise if the workspace carries harness files (SPEC D8)."""
-    found = [marker for marker in _HARNESS_MARKERS if (workspace / marker).exists()]
+    """Raise if the workspace *or any ancestor* carries harness files (SPEC D8).
+
+    The ancestor walk is the whole point. On 2026-07-21 a probe showed the CLI reads
+    instruction files from parent directories: workspaces sat in `runs/` inside this
+    repo, so every trial inherited harness-lab's own CLAUDE.md and the `bare` floor ran
+    carrying two constitutions. A check that looked only at the workspace directory
+    reported clean the entire time.
+    """
+    resolved = workspace.resolve()
+    found: list[str] = []
+    for directory in (resolved, *resolved.parents):
+        for marker in _HARNESS_MARKERS:
+            if (directory / marker).exists():
+                found.append(str(directory / marker))
+
     if found:
         raise HarnessLeakError(
-            f"Harness files in trial workspace {workspace}: {found}. The trial's only "
-            f"envelope must be the setup under test."
+            f"Harness files reachable from trial workspace {workspace}:\n  "
+            + "\n  ".join(found)
+            + "\nThe CLI reads instruction files from ancestor directories, so a trial "
+            "must live outside any repository that carries them. The trial's only "
+            "envelope must be the setup under test."
         )
 
 

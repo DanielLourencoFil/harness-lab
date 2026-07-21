@@ -7,9 +7,10 @@ owns is the order of operations and the lifetime of the temporary HOME.
 import shutil
 import sys
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
-from harness_lab import apparatus, environment, trial, workspace
+from harness_lab import apparatus, contamination, environment, trial, workspace
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 RUNS = ROOT / "runs"
@@ -32,15 +33,21 @@ def main(argv: list[str]) -> int:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 3
 
-    stamp = f"{task_name}__{setup}"
+    stamp = f"{task_name}__{setup}__{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     run_dir = RUNS / stamp
+    run_dir.mkdir(parents=True)
     home_parent = Path(tempfile.mkdtemp(prefix="harness-lab-home-"))
+    # The workspace lives OUTSIDE this repository. On 2026-07-21 workspaces sat in
+    # runs/ and every trial inherited harness-lab's own CLAUDE.md, because the CLI
+    # reads instruction files from ancestor directories. Results stay in runs/ — they
+    # are output, not the agent's working directory.
+    ws_parent = Path(tempfile.mkdtemp(prefix="harness-lab-trial-"))
 
     try:
         home = environment.create_neutralized_home(home_parent)
         environment.assert_neutralized(home)
 
-        ws = workspace.prepare(task_dir, run_dir / "workspace")
+        ws = workspace.prepare(task_dir, ws_parent / "workspace")
         workspace.assert_no_harness_files(ws)
         locked = workspace.locked_hashes(task_dir)
 
@@ -52,8 +59,16 @@ def main(argv: list[str]) -> int:
         print(f"model    : {apparatus.MODEL}  effort: {apparatus.EFFORT}")
         print(f"workspace: {ws}")
         print(f"HOME     : {home}  (neutralized)")
-        print("running...", flush=True)
 
+        # Trial zero. The structural guards above both passed on 2026-07-21 while the
+        # floor was contaminated; this asks the agent itself, in the exact directory
+        # the trial will run in.
+        print("checking for contamination...", flush=True)
+        answer = contamination.check(ws, home)
+        (run_dir / "contamination.txt").write_text(answer, encoding="utf-8")
+        print(f"  agent reports: {answer.strip()[:80]}")
+
+        print("running...", flush=True)
         raw = trial.invoke(argv_cmd, workspace=ws, home=home)
         (run_dir / "result.json").write_text(raw, encoding="utf-8")
 
@@ -75,6 +90,7 @@ def main(argv: list[str]) -> int:
         return 0
 
     except (
+        contamination.ContaminationError,
         environment.ContaminatedEnvironmentError,
         environment.NestedSessionError,
         workspace.HarnessLeakError,
@@ -88,6 +104,8 @@ def main(argv: list[str]) -> int:
     finally:
         # Credentials must not outlive the run.
         shutil.rmtree(home_parent, ignore_errors=True)
+        # The workspace is kept: its diff is the trial's artifact. Its path is printed
+        # above so a failed trial can be inspected.
 
 
 def _tests_pass(ws: Path) -> bool:

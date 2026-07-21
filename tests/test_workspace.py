@@ -87,6 +87,43 @@ def test_a_workspace_containing_harness_files_is_rejected(tmp_path: Path) -> Non
         workspace.assert_no_harness_files(ws)
 
 
+def test_a_workspace_inside_a_repo_carrying_harness_files_is_rejected(
+    tmp_path: Path,
+) -> None:
+    """The leak that made the first real trial invalid (2026-07-21).
+
+    The CLI walks UP the directory tree for instruction files. Workspaces lived in
+    `runs/` inside this repo, so every trial inherited harness-lab's own CLAUDE.md —
+    the `bare` floor ran carrying two constitutions. Checking only the workspace
+    directory looks at the wrong place entirely.
+    """
+    repo = tmp_path / "some-repo"
+    repo.mkdir()
+    (repo / "CLAUDE.md").write_text("# a parent constitution\n")
+
+    ws = workspace.prepare(TASK, repo / "runs" / "trial" / "workspace")
+    with pytest.raises(workspace.HarnessLeakError):
+        workspace.assert_no_harness_files(ws)
+
+
+def test_a_workspace_in_a_clean_temp_directory_passes(tmp_path: Path) -> None:
+    """The condition probe A ran under — the only one observed clean."""
+    ws = workspace.prepare(TASK, tmp_path / "isolated" / "workspace")
+    workspace.assert_no_harness_files(ws)
+
+
+def test_the_ancestor_walk_stops_at_the_filesystem_root(tmp_path: Path) -> None:
+    """Guards against a check that silently does nothing.
+
+    If the walk terminated early it would pass everything, and the test above would be
+    the only thing standing between us and another invalid batch.
+    """
+    ws = workspace.prepare(TASK, tmp_path / "deep" / "a" / "b" / "c" / "workspace")
+    (tmp_path / "deep" / "AGENTS.md").write_text("# four levels up\n")
+    with pytest.raises(workspace.HarnessLeakError):
+        workspace.assert_no_harness_files(ws)
+
+
 def test_locked_test_file_is_recorded_so_tampering_can_be_detected(
     tmp_path: Path,
 ) -> None:
