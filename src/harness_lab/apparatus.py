@@ -17,9 +17,15 @@ from typing import Any, Final
 # limit if the record says which model produced them.
 MODEL: Final = "claude-opus-4-8"
 
-# The owner's real working setting. The D3 requirement is that it be constant, not
-# that it be low.
-EFFORT: Final = "max"
+# DECLARED LIMIT (2026-07-21, first real trial): the owner's machine runs
+# `effortLevel: max`, but `--effort max` is rejected by the CLI for Claude.ai
+# subscribers ("Please use low, medium, or high"), so the lab cannot reproduce that
+# condition through the flag. `high` is the closest available.
+#
+# This satisfies D3, which requires the effort to be CONSTANT across setups, not
+# maximal. It does mean the lab measures at a slightly lower effort than the owner's
+# interactive sessions — a limit that belongs in FINDINGS, not a detail to bury.
+EFFORT: Final = "high"
 
 
 class ApparatusMismatchError(RuntimeError):

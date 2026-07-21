@@ -20,6 +20,16 @@ def test_the_model_is_pinned_by_full_name_not_by_alias() -> None:
     assert apparatus.MODEL not in ("opus", "sonnet", "haiku")
 
 
+def test_effort_is_a_level_the_cli_actually_accepts() -> None:
+    """Found by the first real trial, not by reading docs.
+
+    The owner's machine sets `effortLevel: max`, but `--effort max` is rejected for
+    Claude.ai subscribers. Pinning an unavailable level aborts every trial in a batch,
+    each one after the workspace is built.
+    """
+    assert apparatus.EFFORT in ("low", "medium", "high")
+
+
 def test_flags_pin_model_and_effort_and_never_enable_fallback() -> None:
     """A fallback model is a silent apparatus change mid-batch — the exact failure
     probe B found, automated.
