@@ -72,3 +72,24 @@ they support, with a checked-on date. The spec's own decisions (D1-D10) live in
   failure mode a README cannot catch. Shown red on a deliberate 3-line mutation before
   being trusted. The same test asserts `bare` and `force-cage` own no envelope file, so
   the floor and the cage cannot acquire content by accident.
+
+- **ADR 13 (2026-07-21) — `force-cage` carries the `mini-skill` text plus the loop;
+  its named baseline is `mini-skill`, never `bare`.** SPEC.md D2 left this open
+  ("mini (or no) skill + mechanical outer loop") and a README table cell had settled
+  it silently. *Why mini rather than no text:* the cage is meant to isolate the effect
+  of the *mechanism*, so the text must be held constant across the contrast. *The
+  consequence, which is the real content of this ADR:* the four setups are **two
+  factors, not one variable** — `bare`→`mini` adds text, `mini`→`long` adds length,
+  `mini`→`force-cage` adds the loop. `bare` vs `force-cage` differs on both and is
+  never a valid reading of D7 row 2 ("force-cage ↑ pass-rate → force > steer becomes
+  measured"); read that way it credits the loop with the text's contribution.
+- **ADR 14 (2026-07-21) — Suite Zero preconditions are `xfail(strict=True)` tests, in
+  one file** (`tests/test_preconditions.py`). *Why:* four validity debts (F3's
+  machine layer, the envelope render rule, the D8 isolation selftest, ADR 11's git
+  workspaces) were each recorded as prose in a different file, with no gate — and the
+  repo's own doctrine says documented-but-unwired governance is a prayer. `strict=True`
+  makes the marker announce itself from both directions: while a debt stands the test
+  fails as expected and `verify` stays green; the moment it is paid the test passes,
+  strict turns that into a failure, and someone must delete the marker. Honest label:
+  this is force for *noticing*, steer for *paying* — nothing here stops a human from
+  deleting a marker without doing the work.

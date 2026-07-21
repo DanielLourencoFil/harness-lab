@@ -29,3 +29,48 @@ the error stays on the record.
 measurement, produced by the lab itself, in the cheapest possible run. That is the
 argument for Suite Zero (D10) stated better than the spec stated it: the dominant
 risk is not "no findings", it is *confident wrong findings*.
+
+## 2026-07-21 — Audit of PR #1 (the `setups/` unit)
+
+**9 findings, 9 real, 0 confabulated.** Every finding was re-verified against the
+files before being accepted; the auditor's report is testimony too. The ratio is not
+a compliment to the auditor — it is a measure of how much unverified assertion the
+authoring session had shipped.
+
+Two were reified as red tests and turned green by the fix: the mini envelope was not
+byte-identical to the spike text it claimed to reproduce (one trailing newline), and
+a "verbatim" quote in `setups/long-skill/README.md` had silently dropped two words.
+
+**The three that mattered were claims, not code.** All three were mine, all three were
+stated with confidence, and all three would have travelled into FINDINGS:
+
+1. I described `long-skill` as "the same instruction as `mini-skill`, elaborated 63x".
+   It is not. It shares three restraint clauses and then carries three
+   scan-for-and-change catalogues plus an explicit rebuttal of "it's working, don't
+   touch it" — directives `mini-skill` has no analogue for and whose third line
+   forbids. D7 row 1 was armed to convert a long-vs-mini gap into a **measured** claim
+   about *length*; the gap could as easily be content direction.
+2. I settled an open question from the spec (`force-cage` = "mini (or no) skill") in a
+   README table cell, with no ADR, and then wrote "one variable, four values". The
+   design is two factors, and `bare` vs `force-cage` — the comparison that framing
+   licenses — differs on both, crediting the loop with the mini text's contribution.
+3. I labeled `bare` "floor / pure model", the exact label F3 had retracted three
+   sections earlier in the same repo, on the same day, in a document I wrote.
+
+**What the audit says about the writing session.** Every one of these passed a green
+`verify`, a green CI run, and my own review, because none of them is the kind of thing
+a test was watching. The unit's one mechanical gate — the hash pin — was working
+perfectly and guarded a property nobody was going to get wrong. The claims doing the
+real load-bearing work were unguarded prose.
+
+**And the audit did not catch everything.** While reifying finding N2 I wrote a test
+that could not fail: the quote it checked is wrapped across two lines in the markdown,
+so the substring check was always false and the assertion never ran. Written ten
+minutes after I told the owner that a test never seen red is a hypothesis. Fixed by
+normalizing whitespace; recorded here because the failure mode — a green test that
+asserts nothing — is exactly what this project exists to measure.
+
+**Consequence.** ADR 14 and `tests/test_preconditions.py`: the four validity debts
+that were prose in four different files are now `xfail(strict=True)` tests in one
+place, proven to bite in both directions (open debt → silent xfail; debt paid → hard
+failure demanding the marker be removed).
