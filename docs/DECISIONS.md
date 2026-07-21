@@ -45,3 +45,30 @@ they support, with a checked-on date. The spec's own decisions (D1-D10) live in
   `agentic-harness@3226f96`** with `pnpm verify` -> `./scripts/verify.sh`, each
   carrying its provenance stamp. *Why:* stack-family rites are copied, not reinvented;
   the stamp makes the divergence auditable when the source moves.
+- **ADR 10 (2026-07-21) — `long-skill` = `addyosmani/agent-skills@fea75b16`
+  `code-simplification`, vendored verbatim and pinned by hash.** Selection rule
+  pre-registered before any trial ran (SPEC.md D2 already fixed the family; it is the
+  only skill in that repo aimed at an *authoring* agent rather than a reviewer; its
+  content is directionally identical to `mini-skill`, which makes the comparison a
+  test of length rather than of content). *Why vendored:* the upstream file moves, and
+  a variable that changes silently invalidates every earlier comparison; "we used
+  Osmani's skill" is not reproducible, a sha256 is. Rejected: `code-review-and-quality`
+  as the long setup — it instructs an agent to review someone else's change before
+  merge, a role the trials do not contain, so it would confound role mismatch with
+  envelope length; parked in `setups/_phase3-candidates/`. Full provenance and the four
+  declared limits: `setups/long-skill/README.md`.
+- **ADR 11 (2026-07-21) — Every trial workspace is `git init`-ed with one initial
+  commit, identically for all four setups.** *Why:* the long skill instructs the agent
+  to `git blame` (line 118) and to `commit` (line 165); in a plain fixture directory
+  those fail, and the turns spent land in the ADR 7 cost metric as if the envelope had
+  caused them — the F4 class of error in a new place. Three sibling cases
+  (`CLAUDE.md`, build, linter) are absent for every setup equally, so their cost is
+  uniform rather than differential. Honest label: mitigation, not elimination — the
+  long setup may still spend turns discovering an absence, and that is reported, not
+  hidden.
+- **ADR 12 (2026-07-21) — Envelope pins are enforced by a test, not by a note**
+  (`tests/test_setups.py`, on every `verify`). *Why:* drift in an experimental variable
+  produces runs that still succeed while silently measuring something else — the
+  failure mode a README cannot catch. Shown red on a deliberate 3-line mutation before
+  being trusted. The same test asserts `bare` and `force-cage` own no envelope file, so
+  the floor and the cage cannot acquire content by accident.
