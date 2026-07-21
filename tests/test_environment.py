@@ -83,6 +83,40 @@ def test_trial_env_clears_the_nested_session_marker(tmp_path: Path) -> None:
     assert "CLAUDECODE" not in env
 
 
+def test_each_neutralized_home_is_distinct_and_removed_after_use() -> None:
+    """Single-use, because the CLI writes to HOME as it runs (observed 2026-07-21).
+
+    One invocation left `.claude.json`, `.claude/settings.json`, `.claude/debug/` and
+    `.claude/projects/<workspace>/…jsonl` — session transcript. Sharing a HOME across
+    trials would let trial N read trial N-1's history.
+    """
+    with environment.neutralized_home() as first:
+        first_path = first
+        assert first.is_dir()
+        with environment.neutralized_home() as second:
+            assert second != first
+    assert not first_path.exists()
+
+
+def test_a_home_dirtied_by_a_previous_run_is_no_longer_neutral(tmp_path: Path) -> None:
+    """The abort that exposed the reuse bug, as a test.
+
+    These are the exact paths the CLI created in a supposedly neutral HOME.
+    """
+    home = environment.create_neutralized_home(tmp_path)
+    for leftover in (
+        ".claude.json",
+        ".claude/settings.json",
+        ".claude/projects/-tmp-workspace/session.jsonl",
+    ):
+        path = home / leftover
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n")
+        with pytest.raises(environment.ContaminatedEnvironmentError):
+            environment.assert_neutralized(home)
+        path.unlink()
+
+
 def test_running_inside_a_claude_code_session_is_refused() -> None:
     """Refused with a clear message rather than left to fail as a nested-session crash."""
     with pytest.raises(environment.NestedSessionError):

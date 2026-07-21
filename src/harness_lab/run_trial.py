@@ -4,7 +4,6 @@ Orchestration only — every decision it makes lives in a tested module. What th
 owns is the order of operations and the lifetime of the temporary HOME.
 """
 
-import shutil
 import sys
 import tempfile
 from datetime import UTC, datetime
@@ -36,7 +35,6 @@ def main(argv: list[str]) -> int:
     stamp = f"{task_name}__{setup}__{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     run_dir = RUNS / stamp
     run_dir.mkdir(parents=True)
-    home_parent = Path(tempfile.mkdtemp(prefix="harness-lab-home-"))
     # The workspace lives OUTSIDE this repository. On 2026-07-21 workspaces sat in
     # runs/ and every trial inherited harness-lab's own CLAUDE.md, because the CLI
     # reads instruction files from ancestor directories. Results stay in runs/ — they
@@ -44,9 +42,6 @@ def main(argv: list[str]) -> int:
     ws_parent = Path(tempfile.mkdtemp(prefix="harness-lab-trial-"))
 
     try:
-        home = environment.create_neutralized_home(home_parent)
-        environment.assert_neutralized(home)
-
         ws = workspace.prepare(task_dir, ws_parent / "workspace")
         workspace.assert_no_harness_files(ws)
         locked = workspace.locked_hashes(task_dir)
@@ -58,18 +53,20 @@ def main(argv: list[str]) -> int:
         print(f"setup    : {setup}")
         print(f"model    : {apparatus.MODEL}  effort: {apparatus.EFFORT}")
         print(f"workspace: {ws}")
-        print(f"HOME     : {home}  (neutralized)")
 
-        # Trial zero. The structural guards above both passed on 2026-07-21 while the
-        # floor was contaminated; this asks the agent itself, in the exact directory
-        # the trial will run in.
+        # Trial zero. The structural guards both passed on 2026-07-21 while the floor
+        # was contaminated; this asks the agent itself, in the exact directory the
+        # trial will run in. Its own HOME, because the invocation dirties one.
         print("checking for contamination...", flush=True)
-        answer = contamination.check(ws, home)
+        with environment.neutralized_home() as probe_home:
+            answer = contamination.check(ws, probe_home)
         (run_dir / "contamination.txt").write_text(answer, encoding="utf-8")
         print(f"  agent reports: {answer.strip()[:80]}")
 
         print("running...", flush=True)
-        raw = trial.invoke(argv_cmd, workspace=ws, home=home)
+        with environment.neutralized_home() as home:
+            print(f"HOME     : {home}  (neutralized, single-use)")
+            raw = trial.invoke(argv_cmd, workspace=ws, home=home)
         (run_dir / "result.json").write_text(raw, encoding="utf-8")
 
         result = trial.parse_result(raw)
@@ -102,10 +99,10 @@ def main(argv: list[str]) -> int:
         print(f"\nABORTED — nothing recorded.\n  {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     finally:
-        # Credentials must not outlive the run.
-        shutil.rmtree(home_parent, ignore_errors=True)
-        # The workspace is kept: its diff is the trial's artifact. Its path is printed
-        # above so a failed trial can be inspected.
+        # Credentials never outlive an invocation: neutralized_home() removes each one.
+        # The workspace is kept -- its diff is the trial's artifact -- and its path is
+        # printed above so a failed trial can be inspected.
+        pass
 
 
 def _tests_pass(ws: Path) -> bool:

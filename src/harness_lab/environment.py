@@ -17,6 +17,9 @@ Two probes on 2026-07-21 shaped what "removed" means:
 
 import os
 import shutil
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Final
 
@@ -106,6 +109,32 @@ def assert_not_nested(env: dict[str, str] | None = None) -> None:
             "CLAUDECODE is set: this is a Claude Code session, and `claude -p` will "
             "refuse to launch. Run the runner from a plain terminal."
         )
+
+
+@contextmanager
+def neutralized_home() -> Iterator[Path]:
+    """A single-use neutralized HOME, deleted on exit.
+
+    Single-use is the point. The CLI *writes* to HOME as it runs — observed
+    2026-07-21: one invocation left `.claude.json`, `.claude/settings.json`,
+    `.claude/debug/`, `.claude/todos/`, `.npm/_logs/` and, most importantly,
+    `.claude/projects/<workspace>/…jsonl`, which is session transcript.
+
+    Two consequences, and the second is the dangerous one:
+
+    1. A HOME is no longer neutral after any invocation, so re-checking the same one
+       fails — correctly.
+    2. Reusing a HOME across trials would let trial N read trial N-1's session
+       history. Every invocation therefore gets its own, and credentials never
+       outlive it.
+    """
+    parent = Path(tempfile.mkdtemp(prefix="harness-lab-home-"))
+    try:
+        home = create_neutralized_home(parent)
+        assert_neutralized(home)
+        yield home
+    finally:
+        shutil.rmtree(parent, ignore_errors=True)
 
 
 def trial_env(home: Path) -> dict[str, str]:
