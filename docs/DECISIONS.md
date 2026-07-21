@@ -92,4 +92,23 @@ they support, with a checked-on date. The spec's own decisions (D1-D10) live in
   fails as expected and `verify` stays green; the moment it is paid the test passes,
   strict turns that into a failure, and someone must delete the marker. Honest label:
   this is force for *noticing*, steer for *paying* — nothing here stops a human from
-  deleting a marker without doing the work.
+  deleting a marker without doing the work. (Observed working the same day: paying the
+  render debt turned the gate red and forced the marker's removal — ADR 15.)
+- **ADR 15 (2026-07-21) — Envelopes are rendered, not read: frontmatter is dropped and
+  trailing whitespace stripped, identically for all four setups**
+  (`src/harness_lab/envelopes.py`). *Why drop the frontmatter:* it is selection
+  metadata, not instruction. In real skill use the `description` decides whether a
+  skill loads and only the body reaches the model — so passing it as instruction
+  replicates no real usage. Concretely, the long skill's description says "Use when
+  refactoring code for clarity" three times; fed to a bug-fix task it invites the model
+  to rule the skill inapplicable, which would silently convert "does length help?" into
+  "did the model think the skill applied?" and make a null result unreadable. *Why strip
+  trailing whitespace:* the mini text came from a shell literal (no trailing newline)
+  and the long from a file (one), so without the rule the two envelopes differ by an
+  invisible byte whose origin is storage convention, not design — the rstrip restores
+  the mini envelope to the exact 215 characters the spike ran. *Rejected:* passing each
+  file whole (asymmetric — only the long setup has frontmatter) and stripping
+  frontmatter only from the long skill (a rule that applies to one arm is not a rule).
+  Measuring skill *selection* — does the model correctly judge when a skill applies? —
+  is a real question, and the frontmatter is its object rather than noise; that is a
+  Phase 3 experiment, not this one.
