@@ -5,7 +5,7 @@ task text, same grader, same workspace, same caps (SPEC.md D2/D3).
 
 | setup | envelope | file | role |
 | --- | --- | --- | --- |
-| `bare` | none | — (no file by definition) | machine-layer-only floor — **not** a pure-model floor |
+| `bare` | none | — (no file by definition) | CLI-default floor (see below) |
 | `mini-skill` | 3 lines of steer | `mini-skill/SKILL.md` | cheap steer |
 | `long-skill` | 13,545-byte curated skill | `long-skill/SKILL.md` | expensive steer / "wide net" |
 | `force-cage` | mini text + mechanical outer loop | — (lives in the runner) | the harness thesis |
@@ -14,12 +14,13 @@ task text, same grader, same workspace, same caps (SPEC.md D2/D3).
 envelope, and `force-cage` is control flow (verify → red → re-invoke until cap), not
 text. Both are implemented in the runner.
 
-**`bare` is not a pure-model floor and must never be described as one.** `claude -p`
-reads `~/.claude/` — the machine-layer constitution and hooks — in every setup
-(SPEC.md F3 measured 141k cache-read tokens of it in the spike). Until that layer is
-neutralized, `bare` measures *machine layer only*, and the D2 role column it was
-copied from is superseded by F3. Neutralizing it is a pre-registered precondition of
-Suite Zero (`tests/test_preconditions.py`).
+**`bare` is a CLI-default floor — neither a pure-model floor nor a machine-layer
+one.** F3 is paid: trials run with a neutralized `HOME`, from a directory outside any
+repository carrying instruction files, and trial zero confirms per run that the agent
+sees none (ADR 16-18). What remains is the CLI's own built-in system prompt — roughly
+20-21.5k cache-read tokens per turn, unavoidable and identical for every setup — so
+`bare` is "the model plus the tool harness the CLI always injects", and FINDINGS must
+say that rather than "pure model".
 
 ## This is two factors, not one variable
 

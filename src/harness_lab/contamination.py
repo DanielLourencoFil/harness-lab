@@ -28,10 +28,16 @@ PROMPT: Final = (
     "Reply with exactly NONE if there are none."
 )
 
-# The agent answers in prose, so the check is deliberately blunt: any path-shaped
-# mention of an instruction file counts as contamination. A false positive costs one
-# investigation; a false negative costs a whole batch of invalid numbers.
-_MARKERS: Final[tuple[str, ...]] = ("CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursorrules")
+# A POSITIVE clean signal, not the absence of known-bad substrings. The first version
+# of this check was a blacklist of four filenames, and it failed open twice (audit R2):
+# an empty answer read clean, and so did an answer naming a skill or a settings file,
+# because those were not on the list. SPEC F9 defines the harness as constitution,
+# hooks, skills and memory — a list of constitutions was never going to cover it.
+#
+# environment.py says why this shape is required, four lines above its own allowlist:
+# deciding neutrality by enumerating what must be absent means the day something new
+# appears is the day the check starts lying. This module now obeys the same rule.
+_CLEAN_TOKEN: Final = "NONE"
 
 
 class ContaminationError(RuntimeError):
@@ -39,12 +45,18 @@ class ContaminationError(RuntimeError):
 
 
 def is_clean(answer: str) -> bool:
-    """True when the agent reports no instruction files.
+    """True only when the agent's whole answer is the agreed clean token.
 
-    `NONE` alone is not required — the agent may say "NONE" in a sentence — but any
-    mention of an instruction file name is treated as contamination.
+    Strict equality after normalization, deliberately. An answer that explains, hedges
+    or lists anything is not clean — and an empty answer is not clean either, which is
+    the fail-open path the first version had: `parse_answer` returns "" when the CLI
+    omits `result`, and "" contained none of the banned substrings.
+
+    The cost of strictness is a false positive: the agent says "NONE — I see no
+    instruction files" and the batch stops for one investigation. The cost of leniency
+    is a batch of invalid numbers. ADR 18 already priced that trade.
     """
-    return not any(marker in answer for marker in _MARKERS)
+    return answer.strip().rstrip(".").upper() == _CLEAN_TOKEN
 
 
 def parse_answer(raw: str) -> str:

@@ -133,3 +133,28 @@ def test_running_inside_a_claude_code_session_is_refused() -> None:
         environment.assert_not_nested({"CLAUDECODE": "1"})
 
     environment.assert_not_nested({})  # a normal terminal: no raise
+
+
+def test_trial_env_is_an_allowlist_not_a_blacklist(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Audit R3 — the first version copied os.environ and popped one variable.
+
+    Two of the variables it would have carried are decisive: one would move trials onto
+    metered API, violating D6 in silence, and one would relocate config reading away
+    from the neutralized HOME — so assert_neutralized would pass on a clean temp dir
+    while the CLI read the owner's real config.
+    """
+    leaks = (
+        "ANTHROPIC_" + "API_KEY",
+        "CLAUDE_CONFIG_DIR",
+        "ANTHROPIC_BASE_URL",
+        "CLAUDECODE",
+    )
+    for leak in leaks:
+        monkeypatch.setenv(leak, "placeholder")
+
+    env = environment.trial_env(Path("/tmp/some-home"))
+
+    for leak in leaks:
+        assert leak not in env, f"{leak} reached the trial"
+    assert env["HOME"] == "/tmp/some-home"
+    assert "PATH" in env, "the CLI still has to be findable"

@@ -11,9 +11,42 @@ import pytest
 from harness_lab import contamination
 
 
-def test_a_none_answer_is_clean() -> None:
+def test_only_the_bare_clean_token_is_clean() -> None:
+    """Strict equality after normalization (audit R2).
+
+    An answer that explains rather than answers is not clean. The prose form
+    "There are none — NONE." is now rejected: it is indistinguishable, to a substring
+    check, from "There are none besides CLAUDE.md — NONE elsewhere", and the cost of
+    telling them apart by parsing prose is a parser nobody will maintain.
+
+    The price is a possible false positive stopping a batch for one investigation.
+    ADR 18 priced that against a batch of invalid numbers.
+    """
     assert contamination.is_clean("NONE")
-    assert contamination.is_clean("There are none — NONE.")
+    assert contamination.is_clean("  none  ")
+    assert contamination.is_clean("None.")
+
+    assert not contamination.is_clean("There are none — NONE.")
+    assert not contamination.is_clean("NONE, except the project conventions file.")
+
+
+def test_an_empty_answer_is_not_clean() -> None:
+    """The fail-open path the first version had (audit R2).
+
+    `parse_answer` returns "" when the CLI omits `result`, and "" contained none of
+    the banned substrings — so a check that returned nothing certified the floor.
+    """
+    assert not contamination.is_clean("")
+    assert not contamination.is_clean("   \n  ")
+
+
+def test_an_answer_naming_a_skill_or_settings_file_is_not_clean() -> None:
+    """The second fail-open (audit R2): the blacklist held four constitution
+    filenames, while SPEC F9 defines the harness as constitution, hooks, skills AND
+    memory. A skill or a settings file passed straight through.
+    """
+    assert not contamination.is_clean("I can see /home/u/.claude/skills/x/SKILL.md")
+    assert not contamination.is_clean("settings.json is in my instructions")
 
 
 def test_the_exact_answer_that_exposed_the_leak_is_dirty() -> None:

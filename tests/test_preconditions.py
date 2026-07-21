@@ -95,13 +95,33 @@ def test_trial_workspace_contains_no_harness_files(tmp_path: Path) -> None:
         workspace.assert_no_harness_files(ROOT)
 
 
-def test_trial_workspace_is_git_initialized(tmp_path: Path) -> None:
-    """ADR 11, PAID 2026-07-21 — long-skill instructs `git blame` (118) and `commit`
-    (165); in a plain directory both fail and the wasted turns land in the cost metric
-    as if the envelope had caused them.
+@pytest.mark.xfail(
+    strict=True,
+    reason="ADR 11 debt REOPENED: git init does not stop git blame/commit failing "
+    "while Bash is denied (audit C1)",
+)
+def test_trial_workspace_is_git_initialized() -> None:
+    """ADR 11 — REOPENED 2026-07-21 after being marked paid for the wrong property.
+
+    The debt is about *turn cost*: long-skill instructs `git blame` (line 118) and
+    `commit` (165), and every failing attempt burns a turn that lands in the ADR 7
+    cost metric as if the envelope had caused it.
+
+    The previous version of this test asserted that `.git` exists — the *mechanism* —
+    and passed, so the marker came off. But the commands still failed, because
+    `--permission-mode acceptEdits` denies Bash: the committed evidence shows the
+    agent's own words, "The tests need approval to run." Git-initializing a workspace
+    the agent cannot run git in achieves nothing.
+
+    The lesson is about this gate, not about git: `xfail(strict=True)` is only worth
+    what the assertion inside it says. A test that asserts the mechanism instead of
+    the property will retire a debt that was never paid, and do it loudly enough to
+    look rigorous.
+
+    Reopened until a real trial shows zero permission denials for git commands.
     """
-    ws = workspace.prepare(ROOT / "tasks" / "01-account-bugs", tmp_path / "ws")
-    assert (ws / ".git").is_dir()
+    evidence = json.loads((EVIDENCE / "result.json").read_text())
+    assert evidence.get("permission_denials") == []
 
 
 def test_every_vendored_third_party_file_records_its_upstream_commit() -> None:

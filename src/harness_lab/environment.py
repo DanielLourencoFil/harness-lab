@@ -142,10 +142,24 @@ def neutralized_home(credentials: Path | None = None) -> Iterator[Path]:
         shutil.rmtree(parent, ignore_errors=True)
 
 
+# An allowlist, for the same reason `_ALLOWED` is one. The first version copied the
+# whole parent environment and removed a single variable (audit R3), which meant any
+# of the owner's shell variables reached the trial. Two are decisive:
+#   ANTHROPIC_API_KEY   would move trials onto metered API, violating D6 silently
+#   CLAUDE_CONFIG_DIR   would relocate config reading away from the neutralized HOME,
+#                       so assert_neutralized passes on a clean temp dir while the CLI
+#                       loads the real ~/.claude/
+# Neither is on this machine today. Both would have been inherited if they were, and
+# nothing would have reported it.
+_ENV_ALLOWLIST: Final[tuple[str, ...]] = ("PATH", "LANG", "LC_ALL", "TERM", "TMPDIR")
+
+
 def trial_env(home: Path) -> dict[str, str]:
-    """The environment handed to the subprocess."""
-    env = dict(os.environ)
+    """The environment handed to the subprocess: a declared minimum, plus HOME.
+
+    CLAUDECODE is absent by construction rather than by removal — an allowlist cannot
+    leak what it was never asked to carry.
+    """
+    env = {name: os.environ[name] for name in _ENV_ALLOWLIST if name in os.environ}
     env["HOME"] = str(home)
-    # Must not leak into the child: it would make every trial fail as a nested session.
-    env.pop("CLAUDECODE", None)
     return env

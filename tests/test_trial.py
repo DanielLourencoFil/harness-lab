@@ -113,6 +113,61 @@ def test_invoke_refuses_a_workspace_the_harness_leaked_into(
         trial.invoke(["claude", "--version"], workspace=ws, home=home)
 
 
+def test_invoke_refuses_a_nested_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_credentials: Path
+) -> None:
+    """Audit S9 — deleting this guard used to leave the whole suite green.
+
+    Two of invoke's three guards were held by no test, in a unit whose own docstring
+    says a guard that is never called is decoration.
+    """
+    from harness_lab import environment, workspace
+
+    monkeypatch.setenv("CLAUDECODE", "1")
+    home = environment.create_neutralized_home(tmp_path / "home", fake_credentials)
+    ws = workspace.prepare(TASK, tmp_path / "ws")
+
+    with pytest.raises(environment.NestedSessionError):
+        trial.invoke(["claude", "--version"], workspace=ws, home=home)
+
+
+def test_invoke_refuses_a_contaminated_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_credentials: Path
+) -> None:
+    """Audit S9 — the second unheld guard."""
+    from harness_lab import environment, workspace
+
+    monkeypatch.delenv("CLAUDECODE", raising=False)
+    home = environment.create_neutralized_home(tmp_path / "home", fake_credentials)
+    (home / "CLAUDE.md").write_text("# a constitution\n")
+    ws = workspace.prepare(TASK, tmp_path / "ws")
+
+    with pytest.raises(environment.ContaminatedEnvironmentError):
+        trial.invoke(["claude", "--version"], workspace=ws, home=home)
+
+
+def test_a_result_with_permission_denials_is_rejected() -> None:
+    """Audit C1 — denials cost turns, and their count varies by envelope.
+
+    bare and mini-skill hit one Bash-requiring instruction; long-skill carries about
+    nine of its own. Measuring that as envelope cost measures the permission grant.
+    """
+    with pytest.raises(apparatus.ApparatusMismatchError):
+        apparatus.verify_no_denials(
+            {"permission_denials": [{"tool_name": "Bash", "tool_input": {"command": "x"}}]}
+        )
+    apparatus.verify_no_denials({"permission_denials": []})
+
+
+def test_argv_grants_the_same_tools_to_every_setup() -> None:
+    """D3 — the tool grant is a measurement condition, so it cannot vary by envelope."""
+    grants = set()
+    for setup in ("bare", "mini-skill", "long-skill", "force-cage"):
+        argv = trial.build_argv(task_text="fix it", setup=setup)
+        grants.add(argv[argv.index("--allowedTools") + 1])
+    assert len(grants) == 1
+
+
 def test_cache_fields_are_kept_separate_and_never_summed() -> None:
     """ADR 7 / SPEC F4 — a summed token total is 91% cache mechanics and inverts under
     --append-system-prompt cache invalidation. The type must not offer a total.

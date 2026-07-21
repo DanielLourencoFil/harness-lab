@@ -124,3 +124,49 @@ remembers to type — the failure mode this whole file exists to document.
 
 **Also caught, unprompted by any tool:** `assert_no_harness_files` was written and
 never called. A guard that exists and is not wired is decoration.
+
+## 2026-07-21 — Audit of PR #4 (runner step 1)
+
+**15 findings, 14 confirmed real, 1 hypothesis that turned out real on testing, 0
+confabulated.** Every one verified against the code before being accepted.
+
+**The Critical was in the evidence file I had just committed as proof of rigour.**
+`--permission-mode acceptEdits` denies Bash, and the artifact the Suite Zero gate
+asserts against contains the agent saying *"The tests need approval to run."* The
+grader still produced a correct `tests_pass`, because it runs outside the agent's
+reach — that part held. The cost did not: every denial burns a turn, `num_turns` is
+half the ADR 7 cost signature, and the number of Bash-requiring instructions differs
+by envelope — one for `bare` and `mini-skill`, about ten for `long-skill`. The long
+setup would have measured as more expensive because of a permission flag. **Third
+instance in two days of an instrument artifact being readable as an envelope
+property.**
+
+**The finding under the finding: my own gate retired a debt that was never paid.**
+ADR 11 git-initializes workspaces so `git blame` and `commit` do not fail. They still
+failed — Bash was denied. But `test_trial_workspace_is_git_initialized` asserted that
+`.git` exists, so it passed, `xfail(strict=True)` fired, and I removed the marker
+believing the mechanism worked. **The gate is only worth what the assertion inside it
+says.** A test that asserts the mechanism instead of the property will retire an
+unpaid debt loudly enough to look rigorous. The debt is reopened.
+
+**The hypothesis that was real.** The auditor could not execute, so it labelled the
+stdlib-shadow attack a hypothesis: an agent writing a `unittest/` package into its
+workspace would have its own code run as the grader. Reproduced in one command — the
+old grader returned `tests_pass=True` on a workspace where both bugs were still
+present. The grader now reconstructs a directory from declared files only, and the
+attack is unreachable rather than defended against.
+
+**Two fail-open checks, both written by me the same day, both contradicting a comment
+I had written four lines above the other one.** `contamination.is_clean("")` returned
+True; `trial_env` copied all 51 inherited variables and removed one. `environment.py`
+argues explicitly for allowlists over blacklists — and its own sibling functions were
+blacklists.
+
+**And two of three guards in `invoke` were held by no test.** Deleting
+`assert_not_nested()` and `assert_neutralized()` left the whole suite green, in a unit
+whose own docstring says a guard that is never called is decoration.
+
+**Calibration.** Two audits, 24 findings, 23 real, 1 confabulated-by-omission (none).
+Both audits found things that had passed a green `verify`, a green CI run and my own
+review. The pattern across both: what fails is never the mechanism I built
+deliberately — it is the assertion I wrote *about* the mechanism.

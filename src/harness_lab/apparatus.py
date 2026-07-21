@@ -32,6 +32,44 @@ class ApparatusMismatchError(RuntimeError):
     """The run did not happen under the pinned conditions, so it is not a trial."""
 
 
+# The tool grant is a measurement condition, not an invocation detail — D3 requires it
+# constant across setups AND non-interacting with the envelope, and it was neither
+# until the audit of 2026-07-21 (finding C1).
+#
+# `--permission-mode acceptEdits` alone auto-accepts edits but still DENIES Bash, and
+# headless nothing ever approves it. The first real trial recorded the agent saying
+# "The tests need approval to run." The cost of that is differential: `bare` and
+# `mini-skill` hit one Bash-requiring instruction (the task text), while `long-skill`
+# carries about nine of its own (run tests after each change, git blame, commit,
+# build, linter). Every denial burns a turn, and num_turns is half the ADR 7 cost
+# signature — so the long setup would have measured as more expensive because of a
+# permission flag, not because of its length. That is the F4 failure mode in a third
+# place.
+#
+# Deciding it explicitly, narrowly, and identically for every setup:
+#   Bash(python3:*)  the task text asks for `python3 -m unittest test_account.py`
+#   Bash(git:*)      what ADR 11 git-initializes the workspace to make possible
+# Nothing else — no network, no installs, no writes outside the workspace.
+# `--dangerously-skip-permissions` is rejected: it would close the confound by opening
+# everything, and its own help text limits it to sandboxes with no internet.
+ALLOWED_TOOLS: Final[tuple[str, ...]] = ("Bash(python3:*)", "Bash(git:*)")
+
+# SPEC D6 asks for caps on turns, tokens and wall clock; SPEC section 5 requires them
+# "generous and equal across setups", with cap_hit reported per setup.
+#
+# DECLARED LIMIT: this CLI has no --max-turns and no token cap, so **only wall clock is
+# enforceable inside one invocation**. D2's equal-budget guard — "bare and force-cage
+# capped at the same turns/tokens, so the cage never wins merely by being allowed more
+# attempts" — therefore has to be built from what is enforceable: the same wall-clock
+# cap per invocation, and an equal cap on the force-cage's re-invocations, which the
+# runner does control. That is a weaker guarantee than D2 assumed and belongs in
+# FINDINGS: within a single invocation, an agent may take as many turns as it likes.
+#
+# Generous by design (the clean bare trial took 13s): the cap exists to stop an
+# unattended batch hanging, not to shape behaviour.
+WALL_CLOCK_CAP_S: Final = 600
+
+
 def flags() -> list[str]:
     """CLI flags pinning the apparatus, identical for every setup.
 
@@ -39,7 +77,34 @@ def flags() -> list[str]:
     in the middle of an unattended batch, which is precisely the failure probe B found.
     An overloaded model must fail loudly instead.
     """
-    return ["--model", MODEL, "--effort", EFFORT]
+    return [
+        "--model",
+        MODEL,
+        "--effort",
+        EFFORT,
+        "--permission-mode",
+        "acceptEdits",
+        "--allowedTools",
+        " ".join(ALLOWED_TOOLS),
+    ]
+
+
+def verify_no_denials(result: dict[str, Any]) -> None:
+    """Raise if the agent was denied a tool it was instructed to use.
+
+    A denial is not a neutral event: it costs a turn, and the number of denials
+    depends on how many times an envelope tells the agent to run something. Measuring
+    that as envelope cost is measuring the permission configuration.
+    """
+    denials = result.get("permission_denials") or []
+    if denials:
+        names = sorted({str(d.get("tool_name")) for d in denials})
+        raise ApparatusMismatchError(
+            f"The agent was denied {len(denials)} tool call(s) ({', '.join(names)}). "
+            f"Denials cost turns, and their count varies by envelope, so this trial's "
+            f"cost is partly a property of the permission grant. Allowed tools: "
+            f"{list(ALLOWED_TOOLS)}."
+        )
 
 
 def verify_model(result: dict[str, Any]) -> None:

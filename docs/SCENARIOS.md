@@ -47,8 +47,9 @@ is only evidence when it is like-for-like (same task, same turn count).
   harness is treated as a black box: neutralizing it must not depend on our being able
   to enumerate what lives in `~/.claude/`.
 - The apparatus is pinned explicitly on every invocation: `--model claude-opus-4-8`
-  (full name, never the `opus` alias, which moves) and `--effort max` — the owner's
-  real working conditions.
+  (full name, never the `opus` alias, which moves), `--effort high` (`max` is rejected
+  for Claude.ai subscribers — a declared limit, see `apparatus.py`), and an explicit
+  tool grant, identical for every setup.
 - The trial **verifies** the apparatus rather than trusting it: the `modelUsage` key in
   the result JSON must match the pinned model. `--fallback-model` is never set, so an
   overloaded model fails loudly instead of silently switching mid-batch.

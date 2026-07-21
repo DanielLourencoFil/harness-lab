@@ -19,6 +19,16 @@ class TrialFailedError(RuntimeError):
     """The invocation did not produce a usable trial, so nothing is recorded."""
 
 
+class CapExceededError(RuntimeError):
+    """The agent ran past the wall-clock cap.
+
+    Not the same as an abort. An abort means the instrument was wrong (contaminated
+    environment, unpinned model) and nothing is recorded; a cap hit is *data* — SPEC
+    section 5 requires cap_hit reported per setup, because a cage that fails to
+    converge is a result about the cage.
+    """
+
+
 @dataclass(frozen=True)
 class TrialResult:
     """What one invocation cost and did.
@@ -44,7 +54,6 @@ def build_argv(task_text: str, setup: str) -> list[str]:
     """The exact command for a trial. Pure — no filesystem, no environment."""
     argv = ["claude", "-p", task_text, "--output-format", "json"]
     argv += apparatus.flags()
-    argv += ["--permission-mode", "acceptEdits"]
 
     envelope = envelopes.render(setup)
     if envelope:
@@ -70,6 +79,7 @@ def parse_result(raw: str) -> TrialResult:
         )
 
     apparatus.verify_model(payload)
+    apparatus.verify_no_denials(payload)
 
     usage: dict[str, Any] = payload.get("usage") or {}
     output_tokens = int(usage.get("output_tokens", 0))
@@ -99,13 +109,20 @@ def invoke(argv: list[str], workspace: Path, home: Path) -> str:
     environment.assert_neutralized(home)
     workspace_module.assert_no_harness_files(workspace)
 
-    completed = subprocess.run(
-        argv,
-        cwd=workspace,
-        env=environment.trial_env(home),
-        capture_output=True,
-        text=True,
-    )
+    try:
+        completed = subprocess.run(
+            argv,
+            cwd=workspace,
+            env=environment.trial_env(home),
+            capture_output=True,
+            text=True,
+            timeout=apparatus.WALL_CLOCK_CAP_S,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise CapExceededError(
+            f"Trial exceeded the {apparatus.WALL_CLOCK_CAP_S}s wall-clock cap. "
+            f"Recorded as cap_hit, not as an abort."
+        ) from exc
     if completed.returncode != 0 and not completed.stdout.strip():
         raise TrialFailedError(
             f"claude exited {completed.returncode} with no output. "
