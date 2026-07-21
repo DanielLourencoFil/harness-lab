@@ -1,0 +1,30 @@
+{
+  "task": "01-account-bugs",
+  "setup": "bare",
+  "started_at": "2026-07-21T14:00:04.016762+00:00",
+  "model": "claude-opus-4-8",
+  "effort": "high",
+  "allowed_tools": [
+    "Bash(python3:*)",
+    "Bash(git:*)"
+  ],
+  "task_hash": "864a869a7058ced0f4b0d826de073b0edd4d9cee5ec6c3414f811654d6c6a832",
+  "task_type": "bug-fix",
+  "difficulty": "trivial",
+  "outcome": "completed",
+  "success": true,
+  "tests_pass": true,
+  "tests_locked": true,
+  "scope_ok": true,
+  "out_of_scope_files": [],
+  "output_tokens": 681,
+  "num_turns": 5,
+  "cache_read": 107775,
+  "cache_creation": 2326,
+  "wall_ms": 18808,
+  "cap_hit": false,
+  "auxiliary_model_tokens": {
+    "claude-haiku-4-5-20251001": 32
+  },
+  "workspace": "/tmp/harness-lab-trial-n1llu_0u/workspace"
+}

@@ -36,6 +36,7 @@ from harness_lab import apparatus, contamination, workspace
 
 ROOT = Path(__file__).resolve().parent.parent
 EVIDENCE = ROOT / "docs" / "evidence" / "2026-07-21-f3-neutralization"
+FIRST_TABLE = ROOT / "docs" / "evidence" / "2026-07-21-first-table"
 
 
 def test_bare_setup_is_a_true_floor() -> None:
@@ -95,33 +96,30 @@ def test_trial_workspace_contains_no_harness_files(tmp_path: Path) -> None:
         workspace.assert_no_harness_files(ROOT)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="ADR 11 debt REOPENED: git init does not stop git blame/commit failing "
-    "while Bash is denied (audit C1)",
-)
-def test_trial_workspace_is_git_initialized() -> None:
-    """ADR 11 — REOPENED 2026-07-21 after being marked paid for the wrong property.
+def test_the_agent_can_actually_run_what_its_envelope_instructs() -> None:
+    """ADR 11 + audit C1 — PAID 2026-07-21, on the second attempt.
 
-    The debt is about *turn cost*: long-skill instructs `git blame` (line 118) and
-    `commit` (165), and every failing attempt burns a turn that lands in the ADR 7
-    cost metric as if the envelope had caused it.
+    The first attempt asserted that `.git` exists — the *mechanism* — and passed, so
+    the marker came off. But the commands still failed, because
+    `--permission-mode acceptEdits` denies Bash: the evidence from that day records the
+    agent saying "The tests need approval to run." Git-initializing a workspace the
+    agent cannot run git in achieves nothing.
 
-    The previous version of this test asserted that `.git` exists — the *mechanism* —
-    and passed, so the marker came off. But the commands still failed, because
-    `--permission-mode acceptEdits` denies Bash: the committed evidence shows the
-    agent's own words, "The tests need approval to run." Git-initializing a workspace
-    the agent cannot run git in achieves nothing.
+    The lesson is about this gate rather than about git: `xfail(strict=True)` is worth
+    exactly what the assertion inside it says. A test that asserts the mechanism
+    instead of the property retires an unpaid debt, loudly enough to look rigorous.
 
-    The lesson is about this gate, not about git: `xfail(strict=True)` is only worth
-    what the assertion inside it says. A test that asserts the mechanism instead of
-    the property will retire a debt that was never paid, and do it loudly enough to
-    look rigorous.
-
-    Reopened until a real trial shows zero permission denials for git commands.
+    So this now asserts the property, on both ends of the range that matters: the
+    envelope with one Bash-requiring instruction and the one with about ten. If the
+    permission grant were still shaping cost, the long setup would show denials the
+    bare one does not.
     """
-    evidence = json.loads((EVIDENCE / "result.json").read_text())
-    assert evidence.get("permission_denials") == []
+    for setup in ("bare", "long-skill"):
+        result = json.loads((FIRST_TABLE / f"{setup}.result.json").read_text())
+        assert result.get("permission_denials") == [], (
+            f"{setup} was denied tool calls; denial counts vary by envelope, so cost "
+            f"would be partly a property of the permission grant (audit C1)."
+        )
 
 
 def test_every_vendored_third_party_file_records_its_upstream_commit() -> None:
