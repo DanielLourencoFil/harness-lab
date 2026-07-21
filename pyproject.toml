@@ -5,9 +5,11 @@
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-# The spike is a historical artifact, not instrument code (see spike/README.md).
-# Linting it would rewrite the evidence.
-extend-exclude = ["spike", ".venv"]
+# Neither the spike nor the tasks are instrument code.
+#   spike/ — historical evidence; linting it would rewrite the record.
+#   tasks/ — experimental input. The fixtures are deliberately buggy and the test
+#            files are locked; a formatter touching either changes the experiment.
+extend-exclude = ["spike", "tasks", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
