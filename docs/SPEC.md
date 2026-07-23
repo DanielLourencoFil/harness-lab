@@ -378,3 +378,152 @@ of the instrument, not a property of the envelope.
 
 This sharpens rather than replaces D4's envelope/dynamic split: the split says
 *which* tokens to separate, F4 says *which arithmetic on them is legitimate*.
+
+## 11. Runner findings (2026-07-21) — what building it taught
+
+Section 10 recorded what a two-minute spike taught three days of specification.
+Building the runner taught more, and in the same shape: every item below was found by
+running something, none by reasoning about it. They are recorded here rather than
+edited into the decisions above, so each keeps its date and its cause.
+
+### F5 — Neutralizing the machine layer takes three fixes, not one
+
+F3 named the problem (`claude -p` reads `~/.claude/`) and implied one fix. Three were
+needed, each found only after the previous one was made:
+
+1. **`HOME` must be neutralized** — but not emptied: credentials live in
+   `~/.claude/.credentials.json`, and without them the CLI returns "Not logged in".
+   A trial `HOME` carries that one file and nothing else.
+2. **The working directory must be outside any repository carrying instruction
+   files.** The CLI reads `CLAUDE.md` / `AGENTS.md` from **ancestor** directories.
+   Trial workspaces initially sat in `runs/` inside this repo, so every trial
+   inherited harness-lab's own constitution — the `bare` floor ran carrying two.
+   A structural check of the workspace directory reported clean throughout.
+3. **Every invocation needs its own `HOME`.** The CLI *writes* to `HOME` as it runs:
+   `.claude.json`, `.claude/settings.json`, `.claude/debug/`, `.claude/todos/`, and
+   `.claude/projects/<workspace>/*.jsonl` — **session transcript**. A `HOME` reused
+   across trials would let trial N read trial N-1's history, a cross-trial leak no
+   inspection of a workspace could ever detect.
+
+**Consequence:** neutrality is not a property of `HOME` alone. It is a property of
+(`HOME`, working directory, invocation count), and it is verified per invocation.
+
+### F6 — Structural checks cannot certify a floor; ask the agent
+
+At the moment the floor was contaminated, both structural guards passed:
+`assert_neutralized` (the `HOME` held only credentials) and `assert_no_harness_files`
+(the workspace directory was clean). A structural check looks for what its author knew
+to look for.
+
+The runner therefore runs **trial zero** before each measurement: it asks the agent, in
+the exact directory the trial will use, to list every instruction file it can see, and
+aborts unless the answer is `NONE`. The agent is the only witness with sight of
+everything actually injected. This is wired into the runner, not left as a command
+someone remembers.
+
+### F7 — `cache_read` is not evidence of contamination
+
+The pre-registered F3 criterion was "cache_read should collapse". It does not, and it
+never could: per turn it is flat at ~20-21.5k across a contaminated run, a partially
+contaminated run and a clean one, because it is the CLI's own built-in system prompt
+being re-read. The owner's `CLAUDE.md` is small beside it.
+
+Had the structural check not existed, the observed 15% drop was narratable as success.
+**Second instance of the F4 lesson: token fields are a poor instrument for structural
+questions, and the direction of a plausible number is not evidence of its cause.**
+
+### F8 — The result JSON reports `subtype: "success"` on failed runs
+
+A run that failed to authenticate returned `"subtype":"success"` with
+`"is_error":true` and `"output_tokens":0`. A runner filtering on `subtype` would record
+a failed trial as a successful, free one. **The success signal is `is_error == false`**;
+`output_tokens == 0` is treated as an aborted run, not a cheap one.
+
+### F9 — The apparatus is not part of the harness, and neutralizing removes it too
+
+Neutralizing `HOME` silently changed the model from `claude-opus-4-6` to the CLI
+default `claude-sonnet-4-6`, because the model came from `settings.json`. The machine
+layer holds two separable things: the **harness** (constitution, hooks, skills,
+memory), whose absence is what `bare` measures, and the **apparatus** (model, effort),
+which D3 requires to be constant. Only the first is neutralized; the second is pinned
+by flag and **verified after the run** against the result's `modelUsage`, since a flag
+is an intention and the result is evidence. `--fallback-model` is never set, so an
+overloaded model fails loudly rather than switching mid-batch.
+
+**Declared limit:** `--effort max` is rejected for Claude.ai subscribers, though the
+owner's machine sets `effortLevel: max`. The lab pins `high`, the closest available.
+D3 requires the effort to be constant, not maximal — but the lab measures slightly
+below the owner's interactive conditions, and FINDINGS must say so.
+
+## 12. Task calibration (2026-07-21) — amending D1
+
+D1 chose ~20 microtasks with locked tests over a single showcase app. The first two
+valid trials support that choice on one axis and expose a miscalibration on another.
+Recorded here, dated, rather than changed quietly in the task-writing criteria.
+
+### What held
+
+**The objective judge earned its place immediately.** `tests_pass` / `tests_locked` /
+`scope_ok` produced an uncontestable verdict in 15 seconds. The alternative — "did the
+agent build a good app?" — has no mechanical equivalent, exactly as D1 argued.
+
+**And a new argument for D1 that the spec did not have: the noise is large.** Two
+clean `bare` runs on the same task varied by 19.1% in output tokens against each
+other. High measurement variance is precisely the condition under which N matters:
+twenty small tasks give twenty gradable points per setup, while one app gives one
+noisy point per run, each expensive and slow. The variance discovered on day one is
+the strongest evidence for D1 so far, and it arrived from measurement rather than
+from reasoning.
+
+### What cracked
+
+The differentiating content of `long-skill` — established in the audit — is its three
+scan-for-and-change catalogues: *extract*, *rename*, *remove dead code*, *inline the
+wrapper*. **Those directives need something to scan.**
+
+`tasks/01-account-bugs/fixture/account.py` is ten lines. No adjacent mess, no
+duplication, no poor naming, nothing to be tempted by. The long skill had nowhere to
+express itself, so the trial could not have distinguished the envelopes even in
+principle. A trivial fixture is not merely easy — it is **structurally incapable of
+expressing the behaviour the lab most wants to measure**.
+
+### The amendment
+
+D1 framed the choice as *small task vs large app*. The axis that actually matters is
+different:
+
+| | size of the **change** | size of the **context** |
+| --- | --- | --- |
+| microtask as built | small ✓ | tiny ✗ |
+| single showcase app | large ✗ | large ✓ |
+| **what the lab needs** | **small** | **large and messy** |
+
+A small requested change keeps the judge mechanical and the task reproducible. A large,
+deliberately untidy surrounding context gives the wide-net envelopes and the force-cage
+something to trip over.
+
+**This is a recalibration of D1, not a reversal.** The showcase app is still rejected,
+for the reason D1 gave — there is no objective grader for it — and it would not have
+reached the longitudinal claim either (section 9, limit 1), which no single session
+reaches regardless of size.
+
+**Binding on tasks 3-5 and every task after them:**
+
+- context of roughly 200-400 lines with planted untidiness (duplication, poor names,
+  dead branches, an adjacent module begging for cleanup);
+- the requested change still small and precisely scoped;
+- locked tests and the D3 predicate unchanged;
+- `out_of_scope_files` carries the signal, since it counts what the agent touched
+  beyond what was asked;
+- at least two of type `simplify-under-locked-tests`, and at least one temptation task
+  **in Suite Zero** rather than deferred to the MVP as D5 planned — it is the only
+  region where the mini and long envelopes give opposing instructions, so a suite
+  without one cannot see the difference it exists to measure.
+
+### The open question this leaves
+
+At n=1 per cell, the within-setup variance (19.1%) is three times the between-setup gap
+(5.3%). D10's Suite Zero plan of two runs per cell will not resolve an effect of that
+size. Whether to raise runs per cell, accept that only large effects are detectable, or
+both, is decided before Suite Zero runs — not after seeing which choice produces a
+publishable table.
