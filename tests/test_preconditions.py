@@ -42,17 +42,26 @@ def test_bare_setup_is_a_true_floor() -> None:
     assert "neutralized_home" in RUNNER_PROVES
 
 
-@pytest.mark.xfail(strict=True, reason="frontmatter render rule not yet decided")
 def test_envelope_render_is_decided_and_hashed() -> None:
-    """R4(b,c) — the pin covers the file on disk, not the string sent to the model.
+    """R4(b,c), PAID 2026-07-21 — the marker was removed when this started passing.
 
-    long-skill/SKILL.md carries YAML frontmatter that mini-skill has none of, and the
-    trailing-newline convention differs between a file and a shell literal. Two
-    runners can pass test_setups.py and still send different envelopes. Closing this
-    needs a render function whose output is hashed, applying one rule (strip
-    frontmatter or keep it; strip trailing whitespace) identically to all setups.
+    The debt: the pin covered the file on disk, not the string sent to the model, so
+    two runners could pass test_setups.py and still send different envelopes.
+
+    Closed by ADR 15 and `harness_lab.envelopes`: one render rule (drop frontmatter,
+    strip trailing whitespace) applied identically to all four setups, with the
+    rendered strings hashed in tests/test_envelopes.py. This test now asserts the
+    property rather than expecting its absence.
     """
+    from harness_lab import envelopes
+
     assert (ROOT / "src" / "harness_lab" / "envelopes.py").exists()
+    # One rule, all setups: nothing renders trailing whitespace, and the cage holds
+    # the mini text constant (ADR 13).
+    for setup in envelopes.SETUPS:
+        assert envelopes.render(setup) == envelopes.render(setup).rstrip()
+    assert envelopes.render("force-cage") == envelopes.render("mini-skill")
+    assert "description:" not in envelopes.render("long-skill")
 
 
 @pytest.mark.xfail(strict=True, reason="D8 selftest not written; no trial workspaces yet")

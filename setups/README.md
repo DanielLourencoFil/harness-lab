@@ -64,28 +64,43 @@ a higher `out_of_scope_files` for `long-skill` is read as **content**, never as 
 cost of length. Phase 3's placebo skill (same length, content-free) is what would
 actually separate the two; until it runs, row 1 stays conditional.
 
-## Open decision for the runner: frontmatter
+## What actually reaches the model (decided — ADR 15)
 
-`long-skill/SKILL.md` carries YAML frontmatter (`name`, `description`); the mini
-skill has none. Passing the file verbatim to `--append-system-prompt` therefore feeds
-the long setup a few lines the mini setup never sees. Decide once, apply to all
-setups, and record it: either strip frontmatter from every envelope, or pass every
-envelope whole. Not yet decided — do not let the runner settle it by accident.
+The envelope is not the file: it is what `src/harness_lab/envelopes.py` renders. One
+rule, all four setups — **drop YAML frontmatter, strip trailing whitespace**.
 
-## The pin is mechanical — and pins less than it looks like
+| setup | rendered length | note |
+| --- | --- | --- |
+| `bare` | 0 | the runner omits the flag entirely |
+| `mini-skill` | 215 chars | exactly the literal the spike ran |
+| `long-skill` | 13,203 chars | the 13,545-byte file less frontmatter and final newline |
+| `force-cage` | 215 chars | identical to `mini-skill` by construction (ADR 13) |
 
-`tests/test_setups.py` asserts the sha256 of `long-skill/SKILL.md` on every `verify`.
-An experimental variable that drifts silently invalidates every comparison made
-before the drift, so the gate is a test, not a note. Changing the skill version is
-legitimate — it just has to be a deliberate commit that updates the expected hash.
+The frontmatter is dropped because it is *selection* metadata, not instruction: in
+real skill use the `description` decides whether a skill loads, and only the body
+reaches the model. The long skill's description says "Use when refactoring code for
+clarity" three times — fed to a bug-fix task as instruction, it invites the model to
+rule the skill inapplicable, quietly turning "does length help?" into "did the model
+think the skill applied?".
 
-**Honest limit:** what is pinned is the *file on disk*, not the *string handed to
-`--append-system-prompt`*. Two runners can both pass this test and still send
-different envelopes — frontmatter included or stripped, trailing newline kept or
-dropped (`"$(cat f)"` strips it; `Path.read_text()` keeps it). Closing that gap means
-hashing the rendered string, which needs a render function that does not exist until
-the runner does; it is a pre-registered precondition
-(`tests/test_preconditions.py`).
+Rendered strings are hashed in `tests/test_envelopes.py`, which is a different guard
+from the file hashes in `tests/test_setups.py`: a change to the render rule moves the
+rendered hashes while every file stays byte-identical.
+
+## The pins are mechanical, and there are two of them
+
+Both run on every `verify`. An experimental variable that drifts silently invalidates
+every comparison made before the drift, so each gate is a test, not a note.
+
+| gate | pins | catches |
+| --- | --- | --- |
+| `tests/test_setups.py` | the sha256 of each **file** | upstream text changing under us |
+| `tests/test_envelopes.py` | the sha256 of each **rendered string** | the render rule changing while files stay identical |
+
+Two guards rather than one, because they fail on different things: editing
+`long-skill/SKILL.md` moves both hashes, while changing the frontmatter rule moves
+only the rendered one. Either change is legitimate — each just has to be a deliberate
+commit that updates the expected hash.
 
 ## `_phase3-candidates/`
 
