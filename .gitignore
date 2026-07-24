@@ -22,3 +22,6 @@ build/
 # Privacy block: personal learning notes stay private. Never `git add -f` these.
 INTERVIEW-NOTES.md
 /notes/
+
+# Config local do Claude (por máquina)
+.claude/settings.local.json
